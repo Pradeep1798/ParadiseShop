@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import RootPaths from 'roots/RootPaths';
 import { navigationRef } from 'roots/NavigationService';
+import RootPaths from 'roots/RootPaths';
 
 const App = () => {
   return (

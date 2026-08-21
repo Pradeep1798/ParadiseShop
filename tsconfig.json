@@ -10,10 +10,9 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": "src",
     "paths": {
-  "public/*": ["public/*"],
-  "views/*": ["views/*"],
-  "services/*": ["services/*"],
-  "utils/*": ["utils/*"],
+  "roots/*":["roots/*"],
+  "screen/*": ["screen/*"],
+  "utils/*":["utils/*"]
 }
   },
   "extends": "@react-native/typescript-config/tsconfig.json"

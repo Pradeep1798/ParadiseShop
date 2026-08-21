@@ -6,10 +6,12 @@ module.exports = {
       {
         root: ['./src'],
         alias: {
-          public: './src/public',
-          views: './src/views',
-          services: './src/services',
+          // public: './src/public',
+          // services: './src/services',
           utils: './src/utils',
+          roots:'./src/roots',
+          screen: './src/screen',
+
         },
       },
     ],
