@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "918075801315",
+    "project_id": "paradiseshop-88235",
+    "storage_bucket": "paradiseshop-88235.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:918075801315:android:88d5e70b83a372f5b44fd6",
+        "android_client_info": {
+          "package_name": "com.productapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEeESvaSBsrWK5dLyFAjCWB5iEW7zuGwU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
