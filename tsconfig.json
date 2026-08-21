@@ -1,8 +1,20 @@
 {
-  "extends": "@react-native/typescript-config",
   "compilerOptions": {
-    "types": ["jest"]
+    "target": "esnext",
+    "lib": ["esnext", "dom"],
+    "jsx": "react-native",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "src",
+    "paths": {
+  "public/*": ["public/*"],
+  "views/*": ["views/*"],
+  "services/*": ["services/*"],
+  "utils/*": ["utils/*"],
+}
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["**/node_modules", "**/Pods"]
+  "extends": "@react-native/typescript-config/tsconfig.json"
 }
