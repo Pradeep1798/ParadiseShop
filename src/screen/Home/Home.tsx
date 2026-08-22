@@ -12,9 +12,10 @@ const Home = ({ route, navigation }: any) => {
   };
 
   const menuItems = [
-    { label: 'Stock In', screen: 'StockIn', color: '#5C7D57' },
-    { label: 'Sell', screen: 'Sell', color: '#C17A3D' },
-    { label: 'Expense', screen: 'Expense', color: '#9C3654' },
+    { label: 'Stock In', screen: SCREENS.STOCK_IN, color: '#5C7D57' },
+    { label: 'Sell', screen: SCREENS.SELL, color: '#C17A3D' },
+    { label: 'Expense', screen: SCREENS.EXPENSE, color: '#9C3654' },
+    { label: 'Reports', screen: SCREENS.DAILYREPORTS, color: '#5C3620' },
   ];
 
   return (

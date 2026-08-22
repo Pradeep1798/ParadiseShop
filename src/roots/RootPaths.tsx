@@ -6,6 +6,10 @@ import ShopPicker from 'screen/shopPicker/ShopPicker';
 import Pin from 'screen/shopPicker/Pin';
 import Staff from 'screen/shopPicker/Staff';
 import Splash from 'screen/splash/Splash';
+import sell from 'screen/products/sell';
+import expense from 'screen/products/expense';
+import Stock from 'screen/products/Stock';
+import DailyReports from 'screen/reports/dailyReports';
 
 const RootPaths = () => {
   const Stack = createNativeStackNavigator<RootStackScreens>();
@@ -35,6 +39,26 @@ const RootPaths = () => {
       <Stack.Screen
         name={SCREENS.HOME}
         component={Home}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name={SCREENS.SELL}
+        component={sell}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name={SCREENS.EXPENSE}
+        component={expense}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name={SCREENS.STOCK_IN}
+        component={Stock}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name={SCREENS.DAILYREPORTS}
+        component={DailyReports}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

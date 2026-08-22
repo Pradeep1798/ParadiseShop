@@ -10,6 +10,7 @@ export type RootStackScreens = {
   StockIn: any;
   Sell: any;
   Expense: any;
+  DailyReports: any;
 };
 
 export type StackNavigation = NavigationProp<RootStackScreens>;
@@ -23,4 +24,5 @@ export const SCREENS = {
   STOCK_IN: 'StockIn',
   SELL: 'Sell',
   EXPENSE: 'Expense',
+  DAILYREPORTS: 'DailyReports',
 } as const;
