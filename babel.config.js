@@ -9,9 +9,9 @@ module.exports = {
           // public: './src/public',
           // services: './src/services',
           utils: './src/utils',
-          roots:'./src/roots',
+          roots: './src/roots',
           screen: './src/screen',
-
+          components: './src/components',
         },
       },
     ],

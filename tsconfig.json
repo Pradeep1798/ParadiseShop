@@ -12,7 +12,8 @@
     "paths": {
   "roots/*":["roots/*"],
   "screen/*": ["screen/*"],
-  "utils/*":["utils/*"]
+  "utils/*":["utils/*"],
+  "components/*":["components/*"]
 }
   },
   "extends": "@react-native/typescript-config/tsconfig.json"

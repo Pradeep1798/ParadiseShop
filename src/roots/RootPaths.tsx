@@ -10,6 +10,8 @@ import sell from 'screen/products/sell';
 import expense from 'screen/products/expense';
 import Stock from 'screen/products/Stock';
 import DailyReports from 'screen/reports/dailyReports';
+import Bills from 'screen/products/Bills';
+import Needs from 'screen/products/Needs';
 
 const RootPaths = () => {
   const Stack = createNativeStackNavigator<RootStackScreens>();
@@ -59,6 +61,16 @@ const RootPaths = () => {
       <Stack.Screen
         name={SCREENS.DAILYREPORTS}
         component={DailyReports}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name={SCREENS.BILLS}
+        component={Bills}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name={SCREENS.NEEDS}
+        component={Needs}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

@@ -11,8 +11,6 @@ import {
   getFirestore,
   collection,
   getDocs,
-  query,
-  orderBy,
 } from '@react-native-firebase/firestore';
 
 const DailyReports = ({ route }: any) => {
@@ -24,67 +22,75 @@ const DailyReports = ({ route }: any) => {
   const load = useCallback(async () => {
     const db = getFirestore();
 
-    const salesSnap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'transactions'),
-        orderBy('timestamp', 'desc'),
-      ),
+    const txSnap = await getDocs(
+      collection(db, 'shops', shopId, 'transactions'),
     );
+    const allTx = txSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+
     const expensesSnap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'expenses'),
-        orderBy('timestamp', 'desc'),
-      ),
+      collection(db, 'shops', shopId, 'expenses'),
     );
 
+    const sales = allTx.filter((t: any) => t.type === 'sale');
+    const returns = allTx.filter((t: any) => t.type === 'return');
     const byDate: Record<
       string,
       {
         cashSale: number;
         gpaySale: number;
-        cashExpense: number;
-        gpayExpense: number;
+        expenseByDesc: Record<string, number>;
       }
     > = {};
 
     const ensure = (date: string) => {
       if (!byDate[date])
-        byDate[date] = {
-          cashSale: 0,
-          gpaySale: 0,
-          cashExpense: 0,
-          gpayExpense: 0,
-        };
+        byDate[date] = { cashSale: 0, gpaySale: 0, expenseByDesc: {} };
       return byDate[date];
     };
 
-    salesSnap.docs.forEach(d => {
-      const t = d.data();
-      if (t.type !== 'sale') return;
+    // Sales add to their date's total
+    sales.forEach((t: any) => {
       const bucket = ensure(t.date);
       if (t.paymentMethod === 'gpay') bucket.gpaySale += t.finalAmount;
       else bucket.cashSale += t.finalAmount;
     });
 
+    // Returns subtract from the ORIGINAL sale's date and payment method
+    // (a return today of something sold yesterday still adjusts yesterday's figures,
+    // since that's when the revenue was actually recorded)
+    returns.forEach((r: any) => {
+      const original = sales.find((s: any) => s.id === r.originalTransactionId);
+      if (!original) return; // original sale not found, skip safely
+      const bucket = ensure(original.date);
+      if (original.paymentMethod === 'gpay') bucket.gpaySale -= r.refundAmount;
+      else bucket.cashSale -= r.refundAmount;
+    });
+
     expensesSnap.docs.forEach(d => {
-      const e = d.data();
+      const e = d.data() as any;
       const bucket = ensure(e.date);
-      if (e.paymentMethod === 'gpay') bucket.gpayExpense += e.amount;
-      else bucket.cashExpense += e.amount;
+      const key = e.description.trim().toLowerCase();
+      bucket.expenseByDesc[key] = (bucket.expenseByDesc[key] || 0) + e.amount;
     });
 
     const result = Object.keys(byDate)
       .sort((a, b) => b.localeCompare(a))
       .map(date => {
         const b = byDate[date];
+        const expenseTotal = Object.values(b.expenseByDesc).reduce(
+          (s, v) => s + v,
+          0,
+        );
         return {
           date,
-          sale: b.cashSale + b.gpaySale, // ← total across both payment methods
+          sale: b.cashSale + b.gpaySale,
           gpay: b.gpaySale,
-          expense: b.cashExpense,
-          hand: b.cashSale - b.cashExpense,
+          expenseTotal,
+          expenseByDesc: b.expenseByDesc,
+          hand: b.cashSale - expenseTotal,
         };
       });
+
     setRows(result);
   }, [shopId]);
 
@@ -124,7 +130,20 @@ const DailyReports = ({ route }: any) => {
           <Text style={styles.date}>{row.date}</Text>
           <Row label="Sale" value={row.sale} color="#5C7D57" />
           <Row label="GPay" value={row.gpay} color="#5C7D57" />
-          <Row label="Expense" value={row.expense} color="#9C3654" />
+
+          <Text style={styles.expenseHeading}>Expense</Text>
+          {Object.keys(row.expenseByDesc).length === 0 && (
+            <Text style={styles.subRowText}>— none —</Text>
+          )}
+          {Object.entries(row.expenseByDesc).map(([desc, amt]) => (
+            <View key={desc} style={styles.subRow}>
+              <Text style={styles.subRowText}>{desc}</Text>
+              <Text style={styles.subRowValue}>
+                ₹{(amt as number).toFixed(2)}
+              </Text>
+            </View>
+          ))}
+
           <View style={styles.divider} />
           <Row label="Hand" value={row.hand} color="#5C3620" bold />
         </View>
@@ -191,6 +210,20 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 13, color: '#7A4A2B' },
   rowValue: { fontSize: 13, fontWeight: '600' },
   bold: { fontWeight: '800', fontSize: 14.5 },
+  expenseHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#7A4A2B',
+    marginTop: 8,
+  },
+  subRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingLeft: 10,
+    paddingVertical: 2,
+  },
+  subRowText: { fontSize: 12.5, color: '#7A4A2B' },
+  subRowValue: { fontSize: 12.5, fontWeight: '600', color: '#9C3654' },
   divider: { height: 1, backgroundColor: '#E2CFAF', marginVertical: 6 },
 });
 

@@ -17,9 +17,16 @@ import {
   updateDoc,
   addDoc,
 } from '@react-native-firebase/firestore';
+import ScreenContainer from 'components/ScreenContainer';
+import {
+  computeAmount,
+  computeStockDelta,
+  getQuantityUnitLabel,
+  getStockUnitLabel,
+} from 'utils/HelperFn';
 
 const Sell = ({ route, navigation }: any) => {
-  const { shopId, staffName } = route.params;
+  const { shopId, staffName } = route.params || {};
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,9 +34,9 @@ const Sell = ({ route, navigation }: any) => {
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [selectedSub, setSelectedSub] = useState<any>(null);
   const [grams, setGrams] = useState('');
-  const [finalAmount, setFinalAmount] = useState('');
 
   const [cart, setCart] = useState<any[]>([]);
+  const [billDiscount, setBillDiscount] = useState('0');
   const [payment, setPayment] = useState<'cash' | 'gpay'>('cash');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -51,26 +58,48 @@ const Sell = ({ route, navigation }: any) => {
     setRefreshing(false);
   };
 
-  const suggestedAmount =
-    selectedSub && grams
-      ? (parseFloat(grams) / 1000) * selectedSub.pricePerKg
+  console.log(
+    'selectedSub.unit:',
+    selectedSub?.unit,
+    'pricePerKg:',
+    selectedSub?.pricePerKg,
+    'grams:',
+    grams,
+  );
+
+  const priceMissing =
+    selectedSub &&
+    (selectedSub.pricePerKg === undefined || selectedSub.pricePerKg === null);
+
+  const billAmount =
+    selectedSub && grams && !priceMissing
+      ? computeAmount(
+          selectedSub.unit,
+          parseFloat(grams) || 0,
+          selectedSub.pricePerKg,
+        )
       : 0;
 
-  React.useEffect(() => {
-    if (selectedSub && grams) setFinalAmount(suggestedAmount.toFixed(2));
-  }, [grams, selectedSub]);
+  console.log('billAmount:', billAmount);
 
   const pickGrams = (g: number) => setGrams(String(g));
 
   const addToCart = () => {
     const gramsNum = parseFloat(grams);
-    const amountNum = parseFloat(finalAmount);
     if (!selectedCategory || !selectedSub || !gramsNum || gramsNum <= 0) {
       setError('Pick a category, sub-variety, and enter a valid quantity');
       return;
     }
-    const kgNeeded = gramsNum / 1000;
-    // account for stock already reserved by earlier cart items of the same sub-variety
+    if (
+      selectedSub.pricePerKg === undefined ||
+      selectedSub.pricePerKg === null
+    ) {
+      setError(
+        `${selectedSub.name} has no price set — add it in Firestore first`,
+      );
+      return;
+    }
+    const kgNeeded = computeStockDelta(selectedSub.unit, gramsNum);
     const alreadyInCart = cart
       .filter(
         c =>
@@ -86,10 +115,6 @@ const Sell = ({ route, navigation }: any) => {
       );
       return;
     }
-    if (!amountNum || amountNum <= 0) {
-      setError('Enter a valid final amount');
-      return;
-    }
 
     setCart(prev => [
       ...prev,
@@ -100,14 +125,12 @@ const Sell = ({ route, navigation }: any) => {
         subVarietyName: selectedSub.name,
         quantity: gramsNum,
         unit: 'g',
-        suggestedAmount: Number(suggestedAmount.toFixed(2)),
-        finalAmount: amountNum,
+        billAmount: Number(billAmount.toFixed(2)),
       },
     ]);
     setSelectedCategory(null);
     setSelectedSub(null);
     setGrams('');
-    setFinalAmount('');
     setError('');
   };
 
@@ -115,7 +138,9 @@ const Sell = ({ route, navigation }: any) => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.finalAmount, 0);
+  const cartSubtotal = cart.reduce((sum, item) => sum + item.billAmount, 0);
+  const discountNum = parseFloat(billDiscount) || 0;
+  const cartTotal = Math.max(0, cartSubtotal - discountNum);
 
   const submitBill = async () => {
     if (cart.length === 0) {
@@ -128,9 +153,20 @@ const Sell = ({ route, navigation }: any) => {
       const db = getFirestore();
       const billId = `${Date.now()}_${staffName}`;
 
-      // Group cart items by category so each category doc is updated once with all its deductions
+      // Spread the one bill-level discount across items proportionally,
+      // so each item's finalAmount still adds up to the bill total.
+      const itemsWithFinal = cart.map(item => {
+        const share = cartSubtotal > 0 ? item.billAmount / cartSubtotal : 0;
+        const itemDiscount = Number((discountNum * share).toFixed(2));
+        return {
+          ...item,
+          discount: itemDiscount,
+          finalAmount: Number((item.billAmount - itemDiscount).toFixed(2)),
+        };
+      });
+
       const byCategory: Record<string, any[]> = {};
-      cart.forEach(item => {
+      itemsWithFinal.forEach(item => {
         if (!byCategory[item.categoryId]) byCategory[item.categoryId] = [];
         byCategory[item.categoryId].push(item);
       });
@@ -142,7 +178,10 @@ const Sell = ({ route, navigation }: any) => {
         const updatedSubVarieties = category.subVarieties.map((sv: any) => {
           const deductions = itemsForThisCategory
             .filter(i => i.subVarietyId === sv.id)
-            .reduce((sum, i) => sum + i.quantity / 1000, 0);
+            .reduce(
+              (sum, i) => sum + computeStockDelta(sv.unit, i.quantity),
+              0,
+            );
           return deductions > 0 ? { ...sv, stock: sv.stock - deductions } : sv;
         });
 
@@ -151,8 +190,7 @@ const Sell = ({ route, navigation }: any) => {
         });
       }
 
-      // Log one transaction per cart item, all tagged with the same billId
-      for (const item of cart) {
+      for (const item of itemsWithFinal) {
         await addDoc(collection(db, 'shops', shopId, 'transactions'), {
           type: 'sale',
           billId,
@@ -165,17 +203,16 @@ const Sell = ({ route, navigation }: any) => {
           subVarietyName: item.subVarietyName,
           quantity: item.quantity,
           unit: item.unit,
-          suggestedAmount: item.suggestedAmount,
+          billAmount: item.billAmount,
+          discount: item.discount,
           finalAmount: item.finalAmount,
-          discount: Number(
-            (item.suggestedAmount - item.finalAmount).toFixed(2),
-          ),
           paymentMethod: payment,
           note: note.trim() || null,
         });
       }
 
       setCart([]);
+      setBillDiscount('0');
       setNote('');
       navigation.goBack();
     } catch (e) {
@@ -194,15 +231,9 @@ const Sell = ({ route, navigation }: any) => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
       <Text style={styles.title}>Sell</Text>
 
-      {/* --- Cart summary --- */}
       {cart.length > 0 && (
         <View style={styles.cartBox}>
           <Text style={styles.cartTitle}>
@@ -217,21 +248,41 @@ const Sell = ({ route, navigation }: any) => {
               <View
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
               >
-                <Text style={styles.cartItemAmount}>₹{item.finalAmount}</Text>
+                <Text style={styles.cartItemAmount}>₹{item.billAmount}</Text>
                 <TouchableOpacity onPress={() => removeFromCart(i)}>
                   <Text style={styles.removeText}>✕</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ))}
+
           <View style={styles.cartTotalRow}>
-            <Text style={styles.cartTotalLabel}>Total</Text>
-            <Text style={styles.cartTotalValue}>₹{cartTotal.toFixed(2)}</Text>
+            <Text style={styles.cartTotalLabel}>Subtotal</Text>
+            <Text style={styles.cartTotalValue}>
+              ₹{cartSubtotal.toFixed(2)}
+            </Text>
+          </View>
+
+          <Text style={styles.label}>Discount for whole bill (₹)</Text>
+          <TextInput
+            style={styles.input}
+            value={billDiscount}
+            onChangeText={setBillDiscount}
+            keyboardType="decimal-pad"
+            placeholder="0"
+          />
+
+          <View style={styles.cartTotalRow}>
+            <Text style={[styles.cartTotalLabel, styles.finalLabel]}>
+              Final total
+            </Text>
+            <Text style={[styles.cartTotalValue, styles.finalLabel]}>
+              ₹{cartTotal.toFixed(2)}
+            </Text>
           </View>
         </View>
       )}
 
-      {/* --- Add item form --- */}
       <Text style={styles.label}>Category</Text>
       <View style={styles.wrapRow}>
         {categories.map(cat => (
@@ -242,6 +293,8 @@ const Sell = ({ route, navigation }: any) => {
               selectedCategory?.id === cat.id && styles.pillActive,
             ]}
             onPress={() => {
+              console.log('cat', cat);
+
               setSelectedCategory(cat);
               setSelectedSub(null);
               setGrams('');
@@ -283,7 +336,11 @@ const Sell = ({ route, navigation }: any) => {
                       : styles.pillText
                   }
                 >
-                  {sv.name} ({sv.stock}kg left)
+                  {sv.name} ({sv.stock.toFixed(2)}
+                  {''} {getStockUnitLabel(sv.unit)} left)
+                  {sv.pricePerKg === undefined || sv.pricePerKg === null
+                    ? ' ⚠️ no price set'
+                    : ''}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -293,7 +350,9 @@ const Sell = ({ route, navigation }: any) => {
 
       {selectedSub && (
         <>
-          <Text style={styles.label}>Quantity (grams)</Text>
+          <Text style={styles.label}>
+            Quantity ({getQuantityUnitLabel(selectedSub.unit)})
+          </Text>
           <View style={styles.wrapRow}>
             {(selectedSub.presetAmounts || []).map((g: number) => (
               <TouchableOpacity
@@ -301,7 +360,10 @@ const Sell = ({ route, navigation }: any) => {
                 style={styles.presetBtn}
                 onPress={() => pickGrams(g)}
               >
-                <Text style={styles.presetText}>{g}g</Text>
+                <Text style={styles.presetText}>
+                  {g}
+                  {''} {getQuantityUnitLabel(selectedSub.unit)}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -310,26 +372,22 @@ const Sell = ({ route, navigation }: any) => {
             value={grams}
             onChangeText={setGrams}
             keyboardType="decimal-pad"
-            placeholder="or type a custom amount"
+            placeholder={`or type a custom amount (${getQuantityUnitLabel(
+              selectedSub.unit,
+            )})`}
           />
 
-          <Text style={styles.label}>
-            Suggested: ₹{suggestedAmount.toFixed(2)} — edit if bargained
-          </Text>
-          <TextInput
-            style={styles.input}
-            value={finalAmount}
-            onChangeText={setFinalAmount}
-            keyboardType="decimal-pad"
-          />
+          <Text style={styles.label}>Amount: ₹{billAmount.toFixed(2)}</Text>
 
+          {cart.length === 0 && !!error && (
+            <Text style={styles.error}>{error}</Text>
+          )}
           <TouchableOpacity style={styles.addBtn} onPress={addToCart}>
             <Text style={styles.addBtnText}>+ Add to bill</Text>
           </TouchableOpacity>
         </>
       )}
 
-      {/* --- Payment + note, shown once cart has items --- */}
       {cart.length > 0 && (
         <>
           <Text style={styles.label}>Payment method</Text>
@@ -392,11 +450,8 @@ const Sell = ({ route, navigation }: any) => {
         </>
       )}
 
-      {cart.length === 0 && !!error && (
-        <Text style={styles.error}>{error}</Text>
-      )}
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </ScreenContainer>
   );
 };
 
@@ -489,7 +544,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3E6D5',
   },
-  cartItemText: { fontSize: 13, color: '#2B160C' },
+  cartItemText: { fontSize: 13, color: '#2B160C', flex: 1 },
   cartItemAmount: { fontSize: 13, fontWeight: '600', color: '#5C3620' },
   removeText: { color: '#9C3654', fontWeight: '700', fontSize: 15 },
   cartTotalRow: {
@@ -502,6 +557,7 @@ const styles = StyleSheet.create({
   },
   cartTotalLabel: { fontWeight: '700', color: '#2B160C' },
   cartTotalValue: { fontWeight: '700', color: '#C17A3D', fontSize: 16 },
+  finalLabel: { fontSize: 16, color: '#5C3620' },
   error: { color: '#9C3654', marginTop: 12 },
   button: {
     marginTop: 24,

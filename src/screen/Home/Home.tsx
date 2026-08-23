@@ -16,6 +16,8 @@ const Home = ({ route, navigation }: any) => {
     { label: 'Sell', screen: SCREENS.SELL, color: '#C17A3D' },
     { label: 'Expense', screen: SCREENS.EXPENSE, color: '#9C3654' },
     { label: 'Reports', screen: SCREENS.DAILYREPORTS, color: '#5C3620' },
+    { label: 'Today Bills', screen: SCREENS.BILLS, color: '#4d3b31' },
+    { label: 'Stock Need', screen: SCREENS.NEEDS, color: '#4d3b31' },
   ];
 
   return (

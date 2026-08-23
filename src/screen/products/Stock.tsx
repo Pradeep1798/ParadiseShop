@@ -17,6 +17,8 @@ import {
   updateDoc,
   addDoc,
 } from '@react-native-firebase/firestore';
+import ScreenContainer from 'components/ScreenContainer';
+import { getStockUnitLabel } from 'utils/HelperFn';
 
 const Stock = ({ route, navigation }: any) => {
   const { shopId, staffName } = route.params;
@@ -63,7 +65,7 @@ const Stock = ({ route, navigation }: any) => {
         subVarietyId: selectedSub.id,
         subVarietyName: selectedSub.name,
         quantity,
-        unit: 'kg',
+        unit: selectedSub.unit, // ← add this
         note: itemNote.trim() || null,
       },
     ]);
@@ -147,12 +149,7 @@ const Stock = ({ route, navigation }: any) => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
       <Text style={styles.title}>Stock In</Text>
 
       {cart.length > 0 && (
@@ -163,7 +160,8 @@ const Stock = ({ route, navigation }: any) => {
           {cart.map((item, i) => (
             <View key={i} style={styles.cartRow}>
               <Text style={styles.cartItemText}>
-                {item.subVarietyName} — +{item.quantity}kg
+                {item.subVarietyName} — + {item.quantity}
+                {getStockUnitLabel(item.unit)}
                 {item.note ? ` (${item.note})` : ''}
               </Text>
               <TouchableOpacity onPress={() => removeFromCart(i)}>
@@ -221,7 +219,8 @@ const Stock = ({ route, navigation }: any) => {
                       : styles.pillText
                   }
                 >
-                  {sv.name} (current: {sv.stock}kg)
+                  {sv.name} (current: {sv.stock.toFixed(2)}
+                  {''} {getStockUnitLabel(sv.unit)})
                 </Text>
               </TouchableOpacity>
             ))}
@@ -231,7 +230,9 @@ const Stock = ({ route, navigation }: any) => {
 
       {selectedSub && (
         <>
-          <Text style={styles.label}>Quantity received (kg)</Text>
+          <Text style={styles.label}>
+            Quantity received ({getStockUnitLabel(selectedSub.unit)})
+          </Text>
           <TextInput
             style={styles.input}
             value={qty}
@@ -271,7 +272,7 @@ const Stock = ({ route, navigation }: any) => {
       )}
 
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </ScreenContainer>
   );
 };
 
