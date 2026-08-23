@@ -15,9 +15,10 @@ const Home = ({ route, navigation }: any) => {
     { label: 'Stock In', screen: SCREENS.STOCK_IN, color: '#5C7D57' },
     { label: 'Sell', screen: SCREENS.SELL, color: '#C17A3D' },
     { label: 'Expense', screen: SCREENS.EXPENSE, color: '#9C3654' },
+    { label: 'Today Bills', screen: SCREENS.BILLS, color: '#5C3620' },
     { label: 'Reports', screen: SCREENS.DAILYREPORTS, color: '#5C3620' },
-    { label: 'Today Bills', screen: SCREENS.BILLS, color: '#4d3b31' },
-    { label: 'Stock Need', screen: SCREENS.NEEDS, color: '#4d3b31' },
+    { label: 'Stock Need', screen: SCREENS.NEEDS, color: '#B8871E' },
+    { label: 'Weekly Report', screen: SCREENS.WEEKLY_REPORT, color: '#3A6EA5' },
   ];
 
   return (

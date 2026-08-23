@@ -17,6 +17,8 @@ import {
   doc,
   updateDoc,
   addDoc,
+  query,
+  where,
 } from '@react-native-firebase/firestore';
 
 const Bills = ({ route }: any) => {
@@ -40,14 +42,14 @@ const Bills = ({ route }: any) => {
       collection(db, 'shops', shopId, 'categories'),
     );
     setCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-
     const txSnap = await getDocs(
-      collection(db, 'shops', shopId, 'transactions'),
+      query(
+        collection(db, 'shops', shopId, 'transactions'),
+        where('date', '==', today),
+      ),
     );
     const all = txSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const salesToday = all.filter(
-      (t: any) => t.type === 'sale' && t.date === today,
-    );
+    const salesToday = all.filter((t: any) => t.type === 'sale');
     const returns = all.filter((t: any) => t.type === 'return');
 
     const grouped: Record<string, any> = {};

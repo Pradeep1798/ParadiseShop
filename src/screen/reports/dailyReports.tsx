@@ -11,6 +11,8 @@ import {
   getFirestore,
   collection,
   getDocs,
+  query,
+  where,
 } from '@react-native-firebase/firestore';
 
 const DailyReports = ({ route }: any) => {
@@ -18,17 +20,28 @@ const DailyReports = ({ route }: any) => {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [daysBack, setDaysBack] = useState(7);
 
   const load = useCallback(async () => {
     const db = getFirestore();
 
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - daysBack);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+
     const txSnap = await getDocs(
-      collection(db, 'shops', shopId, 'transactions'),
+      query(
+        collection(db, 'shops', shopId, 'transactions'),
+        where('date', '>=', cutoffStr),
+      ),
     );
     const allTx = txSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
     const expensesSnap = await getDocs(
-      collection(db, 'shops', shopId, 'expenses'),
+      query(
+        collection(db, 'shops', shopId, 'expenses'),
+        where('date', '>=', cutoffStr),
+      ),
     );
 
     const sales = allTx.filter((t: any) => t.type === 'sale');
@@ -92,7 +105,7 @@ const DailyReports = ({ route }: any) => {
       });
 
     setRows(result);
-  }, [shopId]);
+  }, [shopId, daysBack]);
 
   React.useEffect(() => {
     load().finally(() => setLoading(false));

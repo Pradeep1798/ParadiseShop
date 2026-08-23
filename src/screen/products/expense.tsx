@@ -14,6 +14,8 @@ import {
   collection,
   addDoc,
   getDocs,
+  query,
+  where,
 } from '@react-native-firebase/firestore';
 import ScreenContainer from 'components/ScreenContainer';
 
@@ -33,7 +35,12 @@ const Expense = ({ route, navigation }: any) => {
 
   const loadTodaysExpenses = useCallback(async () => {
     const db = getFirestore();
-    const snap = await getDocs(collection(db, 'shops', shopId, 'expenses'));
+    const snap = await getDocs(
+      query(
+        collection(db, 'shops', shopId, 'expenses'),
+        where('date', '==', today),
+      ),
+    );
     const list = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .filter((e: any) => e.date === today)
