@@ -32,6 +32,7 @@ const Bills = ({ route }: any) => {
   const [returnQty, setReturnQty] = useState('');
   const [returnSaving, setReturnSaving] = useState(false);
   const [returnError, setReturnError] = useState('');
+  const [refundPayment, setRefundPayment] = useState<'cash' | 'gpay'>('cash');
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -95,15 +96,6 @@ const Bills = ({ route }: any) => {
     setRefreshing(false);
   };
 
-  const openReturn = (item: any) => {
-    console.log('openReturn called', item);
-    console.log('returnedQty:', item.returnedQty, 'quantity:', item.quantity);
-
-    setReturningItem(item);
-    setReturnQty(String(item.quantity - item.returnedQty));
-    setReturnError('');
-  };
-
   const confirmReturn = async () => {
     const qty = parseFloat(returnQty);
     const maxReturnable = returningItem.quantity - returningItem.returnedQty;
@@ -154,6 +146,7 @@ const Bills = ({ route }: any) => {
         quantity: qty,
         unit: returningItem.unit,
         refundAmount,
+        refundMethod: refundPayment, // ← new field
       });
 
       setReturningItem(null);
@@ -178,6 +171,13 @@ const Bills = ({ route }: any) => {
 
   console.log('render, returningItem is:', returningItem);
 
+  const openReturn = (item: any) => {
+    setReturningItem(item);
+    setReturnQty(String(item.quantity - item.returnedQty));
+    setRefundPayment(item.paymentMethod); // defaults to how it was originally paid
+    setReturnError('');
+  };
+
   return (
     <>
       <ScrollView
@@ -196,58 +196,77 @@ const Bills = ({ route }: any) => {
           <Text style={styles.empty}>No sales yet today.</Text>
         )}
 
-        {bills.map(bill => (
-          <View key={bill.billId} style={styles.card}>
-            {bill.items.map((item: any, i: number) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.itemRow}
-                onPress={() =>
-                  item.returnedQty < item.quantity &&
-                  openReturn({ ...item, billId: bill.billId })
-                }
-                disabled={item.returnedQty >= item.quantity}
-              >
-                <Text style={styles.itemText}>
-                  {item.subVarietyName} ({item.quantity}
-                  {item.unit})
-                  {item.returnedQty > 0
-                    ? ` — ${item.returnedQty}${item.unit} returned`
-                    : ''}
-                </Text>
-                <Text style={styles.itemAmount}>
-                  ₹{item.netAmount.toFixed(2)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {bills.map(bill => {
+          const billDiscountTotal = bill.items.reduce(
+            (sum: number, i: any) => sum + (i.discount || 0),
+            0,
+          );
 
-            <View style={styles.footerRow}>
-              <View style={styles.leftGroup}>
-                <View
-                  style={[
-                    styles.badge,
-                    bill.paymentMethod === 'gpay'
-                      ? styles.badgeGpay
-                      : styles.badgeCash,
-                  ]}
+          return (
+            <View key={bill.billId} style={styles.card}>
+              {bill.items.map((item: any, i: number) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.itemRow}
+                  onPress={() =>
+                    item.returnedQty < item.quantity &&
+                    openReturn({ ...item, billId: bill.billId })
+                  }
+                  disabled={item.returnedQty >= item.quantity}
                 >
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      bill.paymentMethod === 'gpay'
-                        ? styles.badgeTextGpay
-                        : styles.badgeTextCash,
-                    ]}
-                  >
-                    {bill.paymentMethod === 'gpay' ? 'GPay' : 'Cash'}
+                  <Text style={styles.itemText}>
+                    {item.subVarietyName}
+                    {''} ({item.quantity}
+                    {''} {item.unit})
+                    {item.returnedQty > 0
+                      ? ` — ${item.returnedQty}${item.unit} returned`
+                      : ''}
+                  </Text>
+                  <Text style={styles.itemAmount}>
+                    ₹{(item.billAmount ?? item.finalAmount).toFixed(2)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              {billDiscountTotal > 0 && (
+                <View style={styles.itemRow}>
+                  <Text style={[styles.itemText, styles.discountText]}>
+                    Discount
+                  </Text>
+                  <Text style={[styles.itemAmount, styles.discountText]}>
+                    -₹{billDiscountTotal.toFixed(2)}
                   </Text>
                 </View>
-                <Text style={styles.staffName}>{bill.staffName}</Text>
+              )}
+
+              <View style={styles.footerRow}>
+                <View style={styles.leftGroup}>
+                  <View
+                    style={[
+                      styles.badge,
+                      bill.paymentMethod === 'gpay'
+                        ? styles.badgeGpay
+                        : styles.badgeCash,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        bill.paymentMethod === 'gpay'
+                          ? styles.badgeTextGpay
+                          : styles.badgeTextCash,
+                      ]}
+                    >
+                      {bill.paymentMethod === 'gpay' ? 'GPay' : 'Cash'}
+                    </Text>
+                  </View>
+                  <Text style={styles.staffName}>{bill.staffName}</Text>
+                </View>
+                <Text style={styles.amount}>₹{bill.total.toFixed(2)}</Text>
               </View>
-              <Text style={styles.amount}>₹{bill.total.toFixed(2)}</Text>
             </View>
-          </View>
-        ))}
+          );
+        })}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -276,6 +295,44 @@ const Bills = ({ route }: any) => {
                 keyboardType="decimal-pad"
                 autoFocus
               />
+
+              <Text style={styles.label}>Refund via</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentBtn,
+                    refundPayment === 'cash' && styles.paymentBtnActive,
+                  ]}
+                  onPress={() => setRefundPayment('cash')}
+                >
+                  <Text
+                    style={
+                      refundPayment === 'cash'
+                        ? styles.pillTextActive
+                        : styles.pillText
+                    }
+                  >
+                    Cash
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.paymentBtn,
+                    refundPayment === 'gpay' && styles.paymentBtnActive,
+                  ]}
+                  onPress={() => setRefundPayment('gpay')}
+                >
+                  <Text
+                    style={
+                      refundPayment === 'gpay'
+                        ? styles.pillTextActive
+                        : styles.pillText
+                    }
+                  >
+                    GPay
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               {!!returnError && <Text style={styles.error}>{returnError}</Text>}
 
@@ -396,6 +453,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#9C3654',
   },
   confirmBtnText: { color: '#fff', fontWeight: '700' },
+  paymentBtn: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+  },
+  discountText: { color: '#9C3654', fontStyle: 'italic' },
+  paymentBtnActive: { backgroundColor: '#9C3654', borderColor: '#9C3654' },
+  pillText: { color: '#2B160C', fontWeight: '500' },
+  pillTextActive: { color: '#fff', fontWeight: '600' },
   overlayContainer: {
     ...StyleSheet.absoluteFill,
     zIndex: 999,

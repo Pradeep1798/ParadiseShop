@@ -12,6 +12,7 @@ module.exports = {
           roots: './src/roots',
           screen: './src/screen',
           components: './src/components',
+          assests: './src/assests',
         },
       },
     ],

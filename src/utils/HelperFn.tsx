@@ -27,7 +27,9 @@ export async function clearDeviceSession(): Promise<void> {
 export function getStockUnitLabel(baseUnit: string): string {
   if (baseUnit === 'g') return 'kg';
   if (baseUnit === 'ml') return 'L';
-  return 'pcs'; // pcs-based items, e.g. Wafer Stick boxes
+  if (baseUnit === 'pcs') return 'pcs';
+  console.warn('Unexpected unit value:', baseUnit); // flags bad data instead of hiding it
+  return baseUnit || 'pcs';
 }
 
 export function isCountBased(baseUnit: string): boolean {

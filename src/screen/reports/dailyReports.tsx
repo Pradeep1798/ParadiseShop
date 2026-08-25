@@ -73,9 +73,10 @@ const DailyReports = ({ route }: any) => {
     // since that's when the revenue was actually recorded)
     returns.forEach((r: any) => {
       const original = sales.find((s: any) => s.id === r.originalTransactionId);
-      if (!original) return; // original sale not found, skip safely
+      if (!original) return;
       const bucket = ensure(original.date);
-      if (original.paymentMethod === 'gpay') bucket.gpaySale -= r.refundAmount;
+      const method = r.refundMethod || original.paymentMethod; // fallback for old returns made before this change
+      if (method === 'gpay') bucket.gpaySale -= r.refundAmount;
       else bucket.cashSale -= r.refundAmount;
     });
 

@@ -78,10 +78,10 @@ const WeeklyReport = ({ route }: any) => {
           (s: any) => s.id === r.originalTransactionId,
         );
         if (!original) return;
-        if (original.paymentMethod === 'gpay') gpayTotal -= r.refundAmount;
+        const method = r.refundMethod || original.paymentMethod; // fallback for returns made before this change
+        if (method === 'gpay') gpayTotal -= r.refundAmount;
         else cashTotal -= r.refundAmount;
       });
-
       // Expenses — total + itemized
       const expenseByDesc: Record<string, number> = {};
       expSnap.docs.forEach(d => {

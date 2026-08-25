@@ -124,7 +124,7 @@ const Sell = ({ route, navigation }: any) => {
         subVarietyId: selectedSub.id,
         subVarietyName: selectedSub.name,
         quantity: gramsNum,
-        unit: 'g',
+        unit: selectedSub.unit,
         billAmount: Number(billAmount.toFixed(2)),
       },
     ]);
@@ -450,7 +450,7 @@ const Sell = ({ route, navigation }: any) => {
         </>
       )}
 
-      <View style={{ height: 40 }} />
+      <View style={{ height: 80 }} />
     </ScreenContainer>
   );
 };

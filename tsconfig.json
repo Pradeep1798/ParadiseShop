@@ -13,7 +13,8 @@
   "roots/*":["roots/*"],
   "screen/*": ["screen/*"],
   "utils/*":["utils/*"],
-  "components/*":["components/*"]
+  "components/*":["components/*"],
+  "assests/*":["assests/*"]
 }
   },
   "extends": "@react-native/typescript-config/tsconfig.json"
