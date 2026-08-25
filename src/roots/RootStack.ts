@@ -1,5 +1,5 @@
 import { NavigationProp } from '@react-navigation/native';
-import ShopPicker from 'screen/shopPicker/ShopPicker';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 export type RootStackScreens = {
   splash: any;
@@ -16,8 +16,6 @@ export type RootStackScreens = {
   WeekReports: any;
 };
 
-export type StackNavigation = NavigationProp<RootStackScreens>;
-
 export const SCREENS = {
   SPLASH: 'splash',
   HOME: 'home',
@@ -32,3 +30,16 @@ export const SCREENS = {
   NEEDS: 'Needs',
   WEEKLY_REPORT: 'WeekReports',
 } as const;
+
+export type RootBottomScreens = {
+  Home: any;
+  PriceList: any;
+};
+
+export const TABSCREENS = {
+  HOME: 'Home',
+  PRICELIST: 'PriceList',
+} as const;
+
+export type StackNavigation = NavigationProp<RootStackScreens>;
+export type BottomNavigation = BottomTabNavigationProp<RootBottomScreens>;

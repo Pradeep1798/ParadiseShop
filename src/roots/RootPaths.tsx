@@ -1,6 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import { RootStackScreens, SCREENS } from './RootStack';
+import { RootBottomScreens, RootStackScreens, SCREENS } from './RootStack';
 import Home from 'screen/Home/Home';
 import ShopPicker from 'screen/shopPicker/ShopPicker';
 import Pin from 'screen/shopPicker/Pin';
@@ -13,17 +13,25 @@ import DailyReports from 'screen/reports/dailyReports';
 import Bills from 'screen/products/Bills';
 import Needs from 'screen/products/Needs';
 import WeeklyReport from 'screen/reports/weeklyreports';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import BottomTab from './BottomTabs';
 
 const RootPaths = () => {
   const Stack = createNativeStackNavigator<RootStackScreens>();
-
+  const Tab = createBottomTabNavigator<RootBottomScreens>();
   return (
-    <Stack.Navigator>
+    <Stack.Navigator initialRouteName={SCREENS.SPLASH}>
       <Stack.Screen
         name={SCREENS.SPLASH}
         component={Splash}
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name={SCREENS.HOME}
+        component={BottomTab}
+        options={{ headerShown: false }}
+      />
+
       <Stack.Screen
         name={SCREENS.SHOP_PICKER}
         component={ShopPicker}
@@ -39,11 +47,11 @@ const RootPaths = () => {
         component={Staff}
         options={{ headerShown: false }}
       />
-      <Stack.Screen
+      {/* <Stack.Screen
         name={SCREENS.HOME}
         component={Home}
         options={{ headerShown: false }}
-      />
+      /> */}
       <Stack.Screen
         name={SCREENS.SELL}
         component={sell}
