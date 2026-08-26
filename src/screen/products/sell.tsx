@@ -34,13 +34,14 @@ const Sell = ({ route, navigation }: any) => {
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [selectedSub, setSelectedSub] = useState<any>(null);
   const [grams, setGrams] = useState('');
-
+  const [count, setCount] = useState('1');
   const [cart, setCart] = useState<any[]>([]);
   const [billDiscount, setBillDiscount] = useState('0');
   const [payment, setPayment] = useState<'cash' | 'gpay'>('cash');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [billExcess, setBillExcess] = useState('0');
 
   const loadCategories = useCallback(async () => {
     const db = getFirestore();
@@ -71,47 +72,47 @@ const Sell = ({ route, navigation }: any) => {
     selectedSub &&
     (selectedSub.pricePerKg === undefined || selectedSub.pricePerKg === null);
 
-  const billAmount =
-    selectedSub && grams && !priceMissing
+  const pickGrams = (g: number) => setGrams(String(g));
+  const perUnitAmount =
+    selectedSub && grams
       ? computeAmount(
           selectedSub.unit,
           parseFloat(grams) || 0,
           selectedSub.pricePerKg,
         )
       : 0;
+  const countNum = parseInt(count) || 1;
+  const billAmount = perUnitAmount * countNum;
 
   console.log('billAmount:', billAmount);
 
-  const pickGrams = (g: number) => setGrams(String(g));
-
   const addToCart = () => {
     const gramsNum = parseFloat(grams);
-    if (!selectedCategory || !selectedSub || !gramsNum || gramsNum <= 0) {
+    const countNum = parseInt(count) || 1;
+    if (
+      !selectedCategory ||
+      !selectedSub ||
+      !gramsNum ||
+      gramsNum <= 0 ||
+      countNum <= 0
+    ) {
       setError('Pick a category, sub-variety, and enter a valid quantity');
       return;
     }
-    if (
-      selectedSub.pricePerKg === undefined ||
-      selectedSub.pricePerKg === null
-    ) {
-      setError(
-        `${selectedSub.name} has no price set — add it in Firestore first`,
-      );
-      return;
-    }
-    const kgNeeded = computeStockDelta(selectedSub.unit, gramsNum);
+    const totalQty = gramsNum * countNum;
+    const kgNeeded = computeStockDelta(selectedSub.unit, totalQty);
     const alreadyInCart = cart
       .filter(
         c =>
           c.subVarietyId === selectedSub.id &&
           c.categoryId === selectedCategory.id,
       )
-      .reduce((sum, c) => sum + c.quantity / 1000, 0);
+      .reduce((sum, c) => sum + computeStockDelta(c.unit, c.quantity), 0);
     if (kgNeeded + alreadyInCart > selectedSub.stock) {
       setError(
-        `Only ${(selectedSub.stock - alreadyInCart).toFixed(2)}kg of ${
-          selectedSub.name
-        } left`,
+        `Only ${(selectedSub.stock - alreadyInCart).toFixed(
+          2,
+        )}${getStockUnitLabel(selectedSub.unit)} of ${selectedSub.name} left`,
       );
       return;
     }
@@ -123,24 +124,31 @@ const Sell = ({ route, navigation }: any) => {
         categoryName: selectedCategory.name,
         subVarietyId: selectedSub.id,
         subVarietyName: selectedSub.name,
-        quantity: gramsNum,
+        quantity: totalQty,
         unit: selectedSub.unit,
+        pieceInfo:
+          countNum > 1
+            ? `${countNum} × ${gramsNum}${getQuantityUnitLabel(
+                selectedSub.unit,
+              )}`
+            : null,
         billAmount: Number(billAmount.toFixed(2)),
       },
     ]);
     setSelectedCategory(null);
     setSelectedSub(null);
     setGrams('');
+    setCount('1');
     setError('');
   };
-
   const removeFromCart = (index: number) => {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.billAmount, 0);
   const discountNum = parseFloat(billDiscount) || 0;
-  const cartTotal = Math.max(0, cartSubtotal - discountNum);
+  const excessNum = parseFloat(billExcess) || 0;
+  const cartTotal = Math.max(0, cartSubtotal - discountNum + excessNum);
 
   const submitBill = async () => {
     if (cart.length === 0) {
@@ -155,13 +163,36 @@ const Sell = ({ route, navigation }: any) => {
 
       // Spread the one bill-level discount across items proportionally,
       // so each item's finalAmount still adds up to the bill total.
-      const itemsWithFinal = cart.map(item => {
+      const itemsWithFinal = cart.map((item, index) => {
+        const isLastItem = index === cart.length - 1;
         const share = cartSubtotal > 0 ? item.billAmount / cartSubtotal : 0;
-        const itemDiscount = Number((discountNum * share).toFixed(2));
+
+        let itemDiscount: number;
+        let itemExcess: number;
+
+        if (isLastItem) {
+          const discountSoFar = cart.slice(0, -1).reduce((sum, i) => {
+            const s = cartSubtotal > 0 ? i.billAmount / cartSubtotal : 0;
+            return sum + Number((discountNum * s).toFixed(2));
+          }, 0);
+          const excessSoFar = cart.slice(0, -1).reduce((sum, i) => {
+            const s = cartSubtotal > 0 ? i.billAmount / cartSubtotal : 0;
+            return sum + Number((excessNum * s).toFixed(2));
+          }, 0);
+          itemDiscount = Number((discountNum - discountSoFar).toFixed(2));
+          itemExcess = Number((excessNum - excessSoFar).toFixed(2));
+        } else {
+          itemDiscount = Number((discountNum * share).toFixed(2));
+          itemExcess = Number((excessNum * share).toFixed(2));
+        }
+
         return {
           ...item,
           discount: itemDiscount,
-          finalAmount: Number((item.billAmount - itemDiscount).toFixed(2)),
+          excess: itemExcess,
+          finalAmount: Number(
+            (item.billAmount - itemDiscount + itemExcess).toFixed(2),
+          ),
         };
       });
 
@@ -205,14 +236,15 @@ const Sell = ({ route, navigation }: any) => {
           unit: item.unit,
           billAmount: item.billAmount,
           discount: item.discount,
+          excess: item.excess, // ← new field
           finalAmount: item.finalAmount,
           paymentMethod: payment,
           note: note.trim() || null,
         });
       }
-
       setCart([]);
       setBillDiscount('0');
+      setBillExcess('0');
       setNote('');
       navigation.goBack();
     } catch (e) {
@@ -242,8 +274,9 @@ const Sell = ({ route, navigation }: any) => {
           {cart.map((item, i) => (
             <View key={i} style={styles.cartRow}>
               <Text style={styles.cartItemText}>
-                {item.subVarietyName} — {item.quantity}
-                {item.unit}
+                {item.subVarietyName} —{' '}
+                {item.pieceInfo ||
+                  `${item.quantity}${getQuantityUnitLabel(item.unit)}`}
               </Text>
               <View
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
@@ -268,6 +301,15 @@ const Sell = ({ route, navigation }: any) => {
             style={styles.input}
             value={billDiscount}
             onChangeText={setBillDiscount}
+            keyboardType="decimal-pad"
+            placeholder="0"
+          />
+
+          <Text style={styles.label}>Excess amount for whole bill (₹)</Text>
+          <TextInput
+            style={styles.input}
+            value={billExcess}
+            onChangeText={setBillExcess}
             keyboardType="decimal-pad"
             placeholder="0"
           />
@@ -327,6 +369,7 @@ const Sell = ({ route, navigation }: any) => {
                 onPress={() => {
                   setSelectedSub(sv);
                   setGrams('');
+                  setCount('1');
                 }}
               >
                 <Text
@@ -362,7 +405,7 @@ const Sell = ({ route, navigation }: any) => {
               >
                 <Text style={styles.presetText}>
                   {g}
-                  {''} {getQuantityUnitLabel(selectedSub.unit)}
+                  {getQuantityUnitLabel(selectedSub.unit)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -376,12 +419,24 @@ const Sell = ({ route, navigation }: any) => {
               selectedSub.unit,
             )})`}
           />
-
-          <Text style={styles.label}>Amount: ₹{billAmount.toFixed(2)}</Text>
-
-          {cart.length === 0 && !!error && (
-            <Text style={styles.error}>{error}</Text>
+          {selectedSub.unit !== 'pcs' && (
+            <>
+              <Text style={styles.label}>How many?</Text>
+              <TextInput
+                style={styles.input}
+                value={count}
+                onChangeText={setCount}
+                keyboardType="number-pad"
+                placeholder="1"
+              />
+            </>
           )}
+
+          <Text style={styles.label}>
+            Amount: ₹{billAmount.toFixed(2)}{' '}
+            {countNum > 1 ? `(${countNum} × ₹${perUnitAmount.toFixed(2)})` : ''}
+          </Text>
+
           <TouchableOpacity style={styles.addBtn} onPress={addToCart}>
             <Text style={styles.addBtnText}>+ Add to bill</Text>
           </TouchableOpacity>

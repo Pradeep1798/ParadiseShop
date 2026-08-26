@@ -34,11 +34,13 @@ export const SCREENS = {
 export type RootBottomScreens = {
   Home: any;
   PriceList: any;
+  Notifications: any;
 };
 
 export const TABSCREENS = {
   HOME: 'Home',
   PRICELIST: 'PriceList',
+  NOTIFY: 'Notifications',
 } as const;
 
 export type StackNavigation = NavigationProp<RootStackScreens>;

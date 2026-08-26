@@ -3,6 +3,8 @@ import { Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Home from 'screen/Home/Home';
 import PriceList from 'screen/priceList/PriceList';
+import Notifications from 'screen/notification/notications';
+import { TABSCREENS } from './RootStack';
 
 const Tab = createBottomTabNavigator();
 
@@ -19,7 +21,7 @@ const BottomTabs = ({ route, navigation }: any) => {
       }}
     >
       <Tab.Screen
-        name="HomeTab"
+        name={TABSCREENS.HOME}
         options={{
           title: 'Home',
           tabBarIcon: ({ color }) => (
@@ -30,7 +32,7 @@ const BottomTabs = ({ route, navigation }: any) => {
         {props => <Home {...props} route={{ ...props.route, params }} />}
       </Tab.Screen>
       <Tab.Screen
-        name="PriceListTab"
+        name={TABSCREENS.PRICELIST}
         options={{
           title: 'Price List',
           tabBarIcon: ({ color }) => (
@@ -39,6 +41,20 @@ const BottomTabs = ({ route, navigation }: any) => {
         }}
       >
         {props => <PriceList {...props} route={{ ...props.route, params }} />}
+      </Tab.Screen>
+
+      <Tab.Screen
+        name={TABSCREENS.NOTIFY}
+        options={{
+          title: 'Alerts',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>🔔</Text>
+          ),
+        }}
+      >
+        {props => (
+          <Notifications {...props} route={{ ...props.route, params }} />
+        )}
       </Tab.Screen>
     </Tab.Navigator>
   );

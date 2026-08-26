@@ -18,6 +18,7 @@ import { generatePDF } from 'react-native-html-to-pdf';
 import Share from 'react-native-share';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { computeStockDelta, getStockUnitLabel } from 'utils/HelperFn';
+import { notifyWeeklyReportReady } from 'utils/notification';
 
 const HISTORY_KEY = 'weekly_report_history';
 
@@ -288,6 +289,7 @@ ${Object.entries(stockSoldByProduct)
         url: `file://${pdf.filePath}`,
         type: 'application/pdf',
       });
+      await notifyWeeklyReportReady(shopName);
     } catch (e: any) {
       setError('Could not generate report: ' + (e.message || 'unknown error'));
     } finally {

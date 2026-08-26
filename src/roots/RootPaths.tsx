@@ -1,6 +1,11 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React from 'react';
-import { RootBottomScreens, RootStackScreens, SCREENS } from './RootStack';
+import {
+  RootBottomScreens,
+  RootStackScreens,
+  SCREENS,
+  TABSCREENS,
+} from './RootStack';
 import Home from 'screen/Home/Home';
 import ShopPicker from 'screen/shopPicker/ShopPicker';
 import Pin from 'screen/shopPicker/Pin';

@@ -33,6 +33,14 @@ const Bills = ({ route }: any) => {
   const [returnSaving, setReturnSaving] = useState(false);
   const [returnError, setReturnError] = useState('');
   const [refundPayment, setRefundPayment] = useState<'cash' | 'gpay'>('cash');
+  const [search, setSearch] = useState('');
+  const [editingPayment, setEditingPayment] = useState<string | null>(null); // billId being edited
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [staffFilter, setStaffFilter] = useState<string | null>(null);
+  const [paymentFilter, setPaymentFilter] = useState<'cash' | 'gpay' | null>(
+    null,
+  );
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -89,7 +97,7 @@ const Bills = ({ route }: any) => {
   React.useEffect(() => {
     loadData().finally(() => setLoading(false));
   }, [loadData]);
-
+  const staffOptions = Array.from(new Set(bills.map(b => b.staffName)));
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -159,6 +167,42 @@ const Bills = ({ route }: any) => {
     }
   };
 
+  const formatTime = (timestamp: number) =>
+    new Date(timestamp).toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  const updateBillPayment = async (bill: any, newMethod: 'cash' | 'gpay') => {
+    setPaymentSaving(true);
+    try {
+      const db = getFirestore();
+      // Update every transaction in this bill to the new payment method
+      await Promise.all(
+        bill.items.map((item: any) =>
+          updateDoc(doc(db, 'shops', shopId, 'transactions', item.id), {
+            paymentMethod: newMethod,
+          }),
+        ),
+      );
+      setEditingPayment(null);
+      await loadData();
+    } catch (e) {
+      console.log('Could not update payment method');
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
+  const searchLower = search.trim().toLowerCase();
+  const filteredBills = bills.filter(bill => {
+    if (staffFilter && bill.staffName !== staffFilter) return false;
+    if (paymentFilter && bill.paymentMethod !== paymentFilter) return false;
+    return true;
+  });
+
+  const activeFilterCount = (staffFilter ? 1 : 0) + (paymentFilter ? 1 : 0);
+
   const todaysTotal = bills.reduce((sum, b) => sum + b.total, 0);
 
   if (loading) {
@@ -187,18 +231,126 @@ const Bills = ({ route }: any) => {
         }
       >
         <Text style={styles.title}>Today's Bills</Text>
-        <Text style={styles.subtitle}>
-          {bills.length} bill{bills.length !== 1 ? 's' : ''} · ₹
-          {todaysTotal.toFixed(2)} total
-        </Text>
+        <View style={styles.filterRow}>
+          <Text style={styles.subtitle}>
+            {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''} ·
+            ₹{filteredBills.reduce((s, b) => s + b.total, 0).toFixed(2)} total
+          </Text>
+          <TouchableOpacity
+            style={styles.filterIconBtn}
+            onPress={() => setFilterVisible(v => !v)}
+          >
+            <Text style={styles.filterIconText}>
+              🔍 Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
+        {filterVisible && (
+          <View style={styles.filterPanel}>
+            <Text style={styles.label}>Staff</Text>
+            <View style={styles.wrapRow}>
+              <TouchableOpacity
+                style={[styles.pill, !staffFilter && styles.pillActive]}
+                onPress={() => setStaffFilter(null)}
+              >
+                <Text
+                  style={!staffFilter ? styles.pillTextActive : styles.pillText}
+                >
+                  All
+                </Text>
+              </TouchableOpacity>
+              {staffOptions.map(name => (
+                <TouchableOpacity
+                  key={name}
+                  style={[
+                    styles.pill,
+                    staffFilter === name && styles.pillActive,
+                  ]}
+                  onPress={() => setStaffFilter(name)}
+                >
+                  <Text
+                    style={
+                      staffFilter === name
+                        ? styles.pillTextActive
+                        : styles.pillText
+                    }
+                  >
+                    {name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.label}>Payment Mode</Text>
+            <View style={styles.wrapRow}>
+              <TouchableOpacity
+                style={[styles.pill, !paymentFilter && styles.pillActive]}
+                onPress={() => setPaymentFilter(null)}
+              >
+                <Text
+                  style={
+                    !paymentFilter ? styles.pillTextActive : styles.pillText
+                  }
+                >
+                  All
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pill,
+                  paymentFilter === 'cash' && styles.pillActive,
+                ]}
+                onPress={() => setPaymentFilter('cash')}
+              >
+                <Text
+                  style={
+                    paymentFilter === 'cash'
+                      ? styles.pillTextActive
+                      : styles.pillText
+                  }
+                >
+                  Cash
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pill,
+                  paymentFilter === 'gpay' && styles.pillActive,
+                ]}
+                onPress={() => setPaymentFilter('gpay')}
+              >
+                <Text
+                  style={
+                    paymentFilter === 'gpay'
+                      ? styles.pillTextActive
+                      : styles.pillText
+                  }
+                >
+                  GPay
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.applyBtn}
+              onPress={() => setFilterVisible(false)}
+            >
+              <Text style={styles.applyBtnText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {bills.length === 0 && (
           <Text style={styles.empty}>No sales yet today.</Text>
         )}
 
-        {bills.map(bill => {
+        {filteredBills.map(bill => {
           const billDiscountTotal = bill.items.reduce(
             (sum: number, i: any) => sum + (i.discount || 0),
+            0,
+          );
+          const billExcessTotal = bill.items.reduce(
+            (sum: number, i: any) => sum + (i.excess || 0),
             0,
           );
 
@@ -239,28 +391,68 @@ const Bills = ({ route }: any) => {
                 </View>
               )}
 
+              {billExcessTotal > 0 && (
+                <View style={styles.itemRow}>
+                  <Text style={[styles.itemText, styles.excessText]}>
+                    Excess
+                  </Text>
+                  <Text style={[styles.itemAmount, styles.excessText]}>
+                    +₹{billExcessTotal.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.footerRow}>
                 <View style={styles.leftGroup}>
-                  <View
-                    style={[
-                      styles.badge,
-                      bill.paymentMethod === 'gpay'
-                        ? styles.badgeGpay
-                        : styles.badgeCash,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        bill.paymentMethod === 'gpay'
-                          ? styles.badgeTextGpay
-                          : styles.badgeTextCash,
-                      ]}
+                  {editingPayment === bill.billId ? (
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      <TouchableOpacity
+                        style={[styles.badge, styles.badgeCash]}
+                        onPress={() => updateBillPayment(bill, 'cash')}
+                        disabled={paymentSaving}
+                      >
+                        <Text style={[styles.badgeText, styles.badgeTextCash]}>
+                          Cash
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.badge, styles.badgeGpay]}
+                        onPress={() => updateBillPayment(bill, 'gpay')}
+                        disabled={paymentSaving}
+                      >
+                        <Text style={[styles.badgeText, styles.badgeTextGpay]}>
+                          GPay
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setEditingPayment(bill.billId)}
                     >
-                      {bill.paymentMethod === 'gpay' ? 'GPay' : 'Cash'}
-                    </Text>
-                  </View>
-                  <Text style={styles.staffName}>{bill.staffName}</Text>
+                      <View
+                        style={[
+                          styles.badge,
+                          bill.paymentMethod === 'gpay'
+                            ? styles.badgeGpay
+                            : styles.badgeCash,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.badgeText,
+                            bill.paymentMethod === 'gpay'
+                              ? styles.badgeTextGpay
+                              : styles.badgeTextCash,
+                          ]}
+                        >
+                          {bill.paymentMethod === 'gpay' ? 'GPay' : 'Cash'} ✎
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={styles.staffName}>
+                    {bill.staffName} · {formatTime(bill.timestamp)}
+                  </Text>
                 </View>
                 <Text style={styles.amount}>₹{bill.total.toFixed(2)}</Text>
               </View>
@@ -416,17 +608,68 @@ const styles = StyleSheet.create({
   badgeTextGpay: { color: '#3A6EA5' },
   staffName: { fontSize: 12, color: '#9C8768', fontWeight: '500' },
   amount: { fontSize: 15, fontWeight: '700', color: '#5C3620' },
-
+  search: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
+    marginBottom: 16,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(43,22,12,0.5)',
     justifyContent: 'center',
     padding: 24,
   },
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  filterIconBtn: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  filterIconText: { fontSize: 12.5, color: '#5C3620', fontWeight: '600' },
+  filterPanel: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  applyBtn: {
+    marginTop: 14,
+    backgroundColor: '#C17A3D',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  applyBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   modalBox: { backgroundColor: '#fff', borderRadius: 14, padding: 20 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: '#2B160C' },
   modalMeta: { fontSize: 12, color: '#7A4A2B', marginTop: 4, marginBottom: 16 },
   label: { fontSize: 12, fontWeight: '600', color: '#7A4A2B', marginBottom: 8 },
+  pill: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 4,
+  },
+  pillActive: { backgroundColor: '#5C3620', borderColor: '#5C3620' },
+  pillText: { color: '#2B160C', fontWeight: '500' },
+  pillTextActive: { color: '#fff', fontWeight: '600' },
+  excessText: { color: '#5C7D57', fontStyle: 'italic' },
   input: {
     backgroundColor: '#FBF4EC',
     borderWidth: 1,
@@ -464,8 +707,8 @@ const styles = StyleSheet.create({
   },
   discountText: { color: '#9C3654', fontStyle: 'italic' },
   paymentBtnActive: { backgroundColor: '#9C3654', borderColor: '#9C3654' },
-  pillText: { color: '#2B160C', fontWeight: '500' },
-  pillTextActive: { color: '#fff', fontWeight: '600' },
+  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+
   overlayContainer: {
     ...StyleSheet.absoluteFill,
     zIndex: 999,
