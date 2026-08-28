@@ -12,10 +12,12 @@ import { SCREENS } from 'roots/RootStack';
 
 const Staff = ({ route, navigation }: any) => {
   const { shopId, shopName } = route.params;
-  const [names, setNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [staffList, setStaffList] = useState<{ name: string; role: string }[]>(
+    [],
+  );
 
   useEffect(() => {
     const loadNames = async () => {
@@ -23,9 +25,7 @@ const Staff = ({ route, navigation }: any) => {
         const db = getFirestore();
         const shopDoc = await getDoc(doc(db, 'shops', shopId));
         const data = shopDoc.data();
-        console.log('staff', data?.staff);
-
-        setNames(data?.staff || []);
+        setStaffList(data?.staff || []);
       } catch (e) {
         setError('Could not load staff list. Check your internet connection.');
       } finally {
@@ -35,14 +35,27 @@ const Staff = ({ route, navigation }: any) => {
     loadNames();
   }, [shopId]);
 
-  const choose = async (name: string) => {
+  const choose = async (person: { name: string; role: string }) => {
     setSaving(true);
     try {
-      await setDeviceSession({ shopId, shopName, staffName: name });
+      await setDeviceSession({
+        shopId,
+        shopName,
+        staffName: person.name,
+        role: person.role,
+      });
       navigation.reset({
         index: 0,
         routes: [
-          { name: SCREENS.HOME, params: { shopId, shopName, staffName: name } },
+          {
+            name: SCREENS.HOME,
+            params: {
+              shopId,
+              shopName,
+              staffName: person.name,
+              role: person.role,
+            },
+          },
         ],
       });
     } catch (e) {
@@ -50,7 +63,6 @@ const Staff = ({ route, navigation }: any) => {
       setSaving(false);
     }
   };
-
   if (loading) {
     return (
       <View style={styles.center}>
@@ -69,18 +81,18 @@ const Staff = ({ route, navigation }: any) => {
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
-      {names.map(name => (
+      {staffList.map(person => (
         <TouchableOpacity
-          key={name}
+          key={person.name}
           style={styles.nameCard}
-          onPress={() => choose(name)}
+          onPress={() => choose(person)}
           disabled={saving}
         >
-          <Text style={styles.nameText}>{name}</Text>
+          <Text style={styles.nameText}>{person.name}</Text>
         </TouchableOpacity>
       ))}
 
-      {names.length === 0 && !error && (
+      {staffList.length === 0 && !error && (
         <Text style={styles.error}>
           No staff names set up for this shop yet. Ask the owner to add them.
         </Text>

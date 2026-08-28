@@ -6,6 +6,7 @@ interface DeviceSession {
   shopId: string;
   shopName: string;
   staffName: string;
+  role: string;
 }
 
 export async function getDeviceSession(): Promise<DeviceSession | null> {

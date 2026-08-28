@@ -4,7 +4,7 @@ import { clearDeviceSession } from 'utils/HelperFn';
 import { SCREENS } from 'roots/RootStack';
 
 const Home = ({ route, navigation }: any) => {
-  const { shopName, staffName, shopId } = route.params || {};
+  const { shopId, shopName, staffName, role } = route.params || {};
 
   const switchShop = async () => {
     await clearDeviceSession();
@@ -18,7 +18,15 @@ const Home = ({ route, navigation }: any) => {
     { label: 'Today Bills', screen: SCREENS.BILLS, color: '#5C3620' },
     { label: 'Reports', screen: SCREENS.DAILYREPORTS, color: '#5C3620' },
     { label: 'Stock Need', screen: SCREENS.NEEDS, color: '#B8871E' },
-    { label: 'Weekly Report', screen: SCREENS.WEEKLY_REPORT, color: '#3A6EA5' },
+    ...(role === 'owner' || role === 'manager'
+      ? [
+          {
+            label: 'Weekly Report',
+            screen: SCREENS.WEEKLY_REPORT,
+            color: '#3A6EA5',
+          },
+        ]
+      : []),
   ];
 
   return (
