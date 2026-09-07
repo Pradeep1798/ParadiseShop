@@ -118,7 +118,7 @@ const Notifications = ({ route }: any) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <Text style={styles.title}>Notifications</Text>
+      {/* <Text style={styles.title}>Notifications</Text> */}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>⚠️ Low Stock ({lowStock.length})</Text>
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF4EC',
     padding: 24,
-    paddingTop: 48,
+    // paddingTop: 48,
   },
   center: {
     flex: 1,

@@ -123,7 +123,7 @@ const Needs = ({ route }: any) => {
 
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      <Text style={styles.title}>Needed Items</Text>
+      {/* <Text style={styles.title}>Needed Items</Text> */}
       <Text style={styles.subtitle}>Anything running low? Add it here.</Text>
       <Text style={styles.label}>Header (e.g. Nuts, Mold)</Text>
       <TextInput
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF4EC',
   },
   title: { fontSize: 22, fontWeight: '700', color: '#2B160C' },
-  subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 4, marginBottom: 16 },
+  subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 1, marginBottom: 16 },
   label: {
     fontSize: 12,
     fontWeight: '600',

@@ -1,5 +1,5 @@
+import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { NavigationProp } from '@react-navigation/native';
-import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 export type RootStackScreens = {
   splash: any;
@@ -7,13 +7,6 @@ export type RootStackScreens = {
   ShopPicker: any;
   Pin: any;
   Staff: any;
-  StockIn: any;
-  Sell: any;
-  Expense: any;
-  DailyReports: any;
-  Bills: any;
-  Needs: any;
-  WeekReports: any;
 };
 
 export const SCREENS = {
@@ -22,6 +15,27 @@ export const SCREENS = {
   SHOP_PICKER: 'ShopPicker',
   PIN: 'Pin',
   STAFF: 'Staff',
+} as const;
+
+export type RootBottomScreens = {
+  Home: any;
+  PriceList: any;
+  Notifications: any;
+  StockIn: any;
+  Sell: any;
+  Expense: any;
+  DailyReports: any;
+  Bills: any;
+  Needs: any;
+  WeekReports: any;
+  Catalogue: any;
+  CloseBill: any;
+};
+
+export const TABSCREENS = {
+  HOME: 'Home',
+  PRICELIST: 'PriceList',
+  NOTIFY: 'Notifications',
   STOCK_IN: 'StockIn',
   SELL: 'Sell',
   EXPENSE: 'Expense',
@@ -29,19 +43,9 @@ export const SCREENS = {
   BILLS: 'Bills',
   NEEDS: 'Needs',
   WEEKLY_REPORT: 'WeekReports',
-} as const;
-
-export type RootBottomScreens = {
-  Home: any;
-  PriceList: any;
-  Notifications: any;
-};
-
-export const TABSCREENS = {
-  HOME: 'Home',
-  PRICELIST: 'PriceList',
-  NOTIFY: 'Notifications',
+  CATALOGUE: 'Catalogue',
+  CLOSEBILLS: 'CloseBill',
 } as const;
 
 export type StackNavigation = NavigationProp<RootStackScreens>;
-export type BottomNavigation = BottomTabNavigationProp<RootBottomScreens>;
+export type DrawerNavigation = DrawerNavigationProp<RootBottomScreens>;

@@ -1,59 +1,551 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { clearDeviceSession } from 'utils/HelperFn';
-import { SCREENS } from 'roots/RootStack';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+} from 'react-native';
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  addDoc,
+} from '@react-native-firebase/firestore';
+import {
+  getQuantityUnitLabel,
+  getStockUnitLabel,
+  computeAmount,
+  computeStockDelta,
+} from 'utils/HelperFn';
 
 const Home = ({ route, navigation }: any) => {
   const { shopId, shopName, staffName, role } = route.params || {};
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const switchShop = async () => {
-    await clearDeviceSession();
-    navigation.reset({ index: 0, routes: [{ name: SCREENS.SHOP_PICKER }] });
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [selectedSub, setSelectedSub] = useState<any>(null);
+  const [grams, setGrams] = useState('');
+  const [count, setCount] = useState('1');
+
+  const [cart, setCart] = useState<any[]>([]);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [billDiscount, setBillDiscount] = useState('0');
+  const [billExcess, setBillExcess] = useState('0');
+  const [payment, setPayment] = useState<'cash' | 'gpay'>('cash');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const loadCategories = useCallback(async () => {
+    const db = getFirestore();
+    const snap = await getDocs(collection(db, 'shops', shopId, 'categories'));
+    setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, [shopId]);
+
+  React.useEffect(() => {
+    loadCategories().finally(() => setLoading(false));
+  }, [loadCategories]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadCategories();
+    setRefreshing(false);
   };
 
-  const menuItems = [
-    { label: 'Stock In', screen: SCREENS.STOCK_IN, color: '#5C7D57' },
-    { label: 'Sell', screen: SCREENS.SELL, color: '#C17A3D' },
-    { label: 'Expense', screen: SCREENS.EXPENSE, color: '#9C3654' },
-    { label: 'Today Bills', screen: SCREENS.BILLS, color: '#5C3620' },
-    { label: 'Reports', screen: SCREENS.DAILYREPORTS, color: '#5C3620' },
-    { label: 'Stock Need', screen: SCREENS.NEEDS, color: '#B8871E' },
-    ...(role === 'owner' || role === 'manager'
-      ? [
-          {
-            label: 'Weekly Report',
-            screen: SCREENS.WEEKLY_REPORT,
-            color: '#3A6EA5',
-          },
-        ]
-      : []),
-  ];
+  const quickItems = categories
+    .flatMap(cat =>
+      (cat.subVarieties || []).map((sv: any) => ({
+        ...sv,
+        categoryId: cat.id,
+        categoryName: cat.name,
+      })),
+    )
+    .filter(sv => sv.pricePerKg > 300)
+    .slice(0, 8);
+
+  const perUnitAmount =
+    selectedSub && grams
+      ? computeAmount(
+          selectedSub.unit,
+          parseFloat(grams) || 0,
+          selectedSub.pricePerKg,
+        )
+      : 0;
+  const countNum = selectedSub?.unit === 'pcs' ? 1 : parseInt(count) || 1;
+  const billAmount = perUnitAmount * countNum;
+
+  const selectItem = (cat: any, sv: any, presetGrams?: number) => {
+    setSelectedCategory(cat);
+    setSelectedSub(sv);
+    setGrams(presetGrams ? String(presetGrams) : '');
+    setCount('1');
+  };
+
+  const addToCart = () => {
+    const gramsNum = parseFloat(grams);
+    if (!selectedCategory || !selectedSub || !gramsNum || gramsNum <= 0) {
+      setError('Pick an item and enter a valid quantity');
+      return;
+    }
+    const totalQty = gramsNum * countNum;
+    const kgNeeded = computeStockDelta(selectedSub.unit, totalQty);
+    const alreadyInCart = cart
+      .filter(
+        c =>
+          c.subVarietyId === selectedSub.id &&
+          c.categoryId === selectedCategory.id,
+      )
+      .reduce((sum, c) => sum + computeStockDelta(c.unit, c.quantity), 0);
+    if (kgNeeded + alreadyInCart > selectedSub.stock) {
+      setError(
+        `Only ${(selectedSub.stock - alreadyInCart).toFixed(
+          2,
+        )}${getStockUnitLabel(selectedSub.unit)} of ${selectedSub.name} left`,
+      );
+      return;
+    }
+
+    setCart(prev => [
+      ...prev,
+      {
+        categoryId: selectedCategory.id,
+        categoryName: selectedCategory.name,
+        subVarietyId: selectedSub.id,
+        subVarietyName: selectedSub.name,
+        quantity: totalQty,
+        unit: selectedSub.unit,
+        pieceInfo:
+          countNum > 1
+            ? `${countNum} × ${gramsNum}${getQuantityUnitLabel(
+                selectedSub.unit,
+              )}`
+            : null,
+        billAmount: Number(billAmount.toFixed(2)),
+      },
+    ]);
+    setSelectedCategory(null);
+    setSelectedSub(null);
+    setGrams('');
+    setCount('1');
+    setError('');
+  };
+
+  const removeFromCart = (index: number) =>
+    setCart(prev => prev.filter((_, i) => i !== index));
+
+  const cartSubtotal = cart.reduce((sum, item) => sum + item.billAmount, 0);
+  const discountNum = parseFloat(billDiscount) || 0;
+  const excessNum = parseFloat(billExcess) || 0;
+  const cartTotal = Math.max(0, cartSubtotal - discountNum + excessNum);
+
+  const submitBill = async () => {
+    if (cart.length === 0) {
+      setError('Add at least one item before completing the sale');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const db = getFirestore();
+      const billId = `${Date.now()}_${staffName}`;
+
+      const itemsWithFinal = cart.map((item, index) => {
+        const isLastItem = index === cart.length - 1;
+        const share = cartSubtotal > 0 ? item.billAmount / cartSubtotal : 0;
+        let itemDiscount: number, itemExcess: number;
+        if (isLastItem) {
+          const discountSoFar = cart
+            .slice(0, -1)
+            .reduce(
+              (sum, i) =>
+                sum +
+                Number(
+                  (
+                    discountNum *
+                    (cartSubtotal > 0 ? i.billAmount / cartSubtotal : 0)
+                  ).toFixed(2),
+                ),
+              0,
+            );
+          const excessSoFar = cart
+            .slice(0, -1)
+            .reduce(
+              (sum, i) =>
+                sum +
+                Number(
+                  (
+                    excessNum *
+                    (cartSubtotal > 0 ? i.billAmount / cartSubtotal : 0)
+                  ).toFixed(2),
+                ),
+              0,
+            );
+          itemDiscount = Number((discountNum - discountSoFar).toFixed(2));
+          itemExcess = Number((excessNum - excessSoFar).toFixed(2));
+        } else {
+          itemDiscount = Number((discountNum * share).toFixed(2));
+          itemExcess = Number((excessNum * share).toFixed(2));
+        }
+        return {
+          ...item,
+          discount: itemDiscount,
+          excess: itemExcess,
+          finalAmount: Number(
+            (item.billAmount - itemDiscount + itemExcess).toFixed(2),
+          ),
+        };
+      });
+
+      const byCategory: Record<string, any[]> = {};
+      itemsWithFinal.forEach(item => {
+        if (!byCategory[item.categoryId]) byCategory[item.categoryId] = [];
+        byCategory[item.categoryId].push(item);
+      });
+
+      for (const categoryId of Object.keys(byCategory)) {
+        const category = categories.find(c => c.id === categoryId);
+        const itemsForThisCategory = byCategory[categoryId];
+        const updatedSubVarieties = category.subVarieties.map((sv: any) => {
+          const deductions = itemsForThisCategory
+            .filter(i => i.subVarietyId === sv.id)
+            .reduce(
+              (sum, i) => sum + computeStockDelta(sv.unit, i.quantity),
+              0,
+            );
+          return deductions > 0 ? { ...sv, stock: sv.stock - deductions } : sv;
+        });
+        await updateDoc(doc(db, 'shops', shopId, 'categories', categoryId), {
+          subVarieties: updatedSubVarieties,
+        });
+      }
+
+      for (const item of itemsWithFinal) {
+        await addDoc(collection(db, 'shops', shopId, 'transactions'), {
+          type: 'sale',
+          billId,
+          date: new Date().toISOString().slice(0, 10),
+          timestamp: Date.now(),
+          staffName,
+          categoryId: item.categoryId,
+          categoryName: item.categoryName,
+          subVarietyId: item.subVarietyId,
+          subVarietyName: item.subVarietyName,
+          quantity: item.quantity,
+          unit: item.unit,
+          billAmount: item.billAmount,
+          discount: item.discount,
+          excess: item.excess,
+          finalAmount: item.finalAmount,
+          paymentMethod: payment,
+          note: note.trim() || null,
+        });
+      }
+
+      setCart([]);
+      setBillDiscount('0');
+      setBillExcess('0');
+      setNote('');
+      setShowMoreOptions(false);
+      await loadCategories();
+    } catch (e) {
+      setError('Something went wrong, try again');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#7A4A2B" />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.shopName}>{shopName}</Text>
-        <Text style={styles.staffName}>Signed in as {staffName}</Text>
-      </View>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      {/* <View style={styles.header}> */}
+      {/* <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.menuBtn}>
+          <Text style={styles.menuIcon}>☰</Text>
+        </TouchableOpacity> */}
+      {/* <View>
+          <Text style={styles.shopName}>{shopName}</Text>
+          <Text style={styles.staffLabel}>{staffName}</Text>
+        </View> */}
+      {/* </View> */}
 
-      <View style={styles.menu}>
-        {menuItems.map(item => (
+      {cart.length > 0 && (
+        <View style={styles.cartBox}>
+          <Text style={styles.cartTitle}>
+            Bill ({cart.length} item{cart.length > 1 ? 's' : ''})
+          </Text>
+          {cart.map((item, i) => (
+            <View key={i} style={styles.cartRow}>
+              <Text style={styles.cartItemText}>
+                {item.subVarietyName} —{' '}
+                {item.pieceInfo ||
+                  `${item.quantity}${getQuantityUnitLabel(item.unit)}`}
+              </Text>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+              >
+                <Text style={styles.cartItemAmount}>₹{item.billAmount}</Text>
+                <TouchableOpacity onPress={() => removeFromCart(i)}>
+                  <Text style={styles.removeText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+          <View style={styles.cartTotalRow}>
+            <Text style={styles.cartTotalLabel}>Subtotal</Text>
+            <Text style={styles.cartTotalValue}>
+              ₹{cartSubtotal.toFixed(2)}
+            </Text>
+          </View>
+
+          <TouchableOpacity onPress={() => setShowMoreOptions(s => !s)}>
+            <Text style={styles.moreOptionsLink}>
+              {showMoreOptions
+                ? '− Hide options'
+                : '+ More options (discount, excess, note)'}
+            </Text>
+          </TouchableOpacity>
+
+          {showMoreOptions && (
+            <>
+              <Text style={styles.label}>Discount (₹)</Text>
+              <TextInput
+                style={styles.input}
+                value={billDiscount}
+                onChangeText={setBillDiscount}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.label}>Excess (₹)</Text>
+              <TextInput
+                style={styles.input}
+                value={billExcess}
+                onChangeText={setBillExcess}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.label}>Note</Text>
+              <TextInput
+                style={styles.input}
+                value={note}
+                onChangeText={setNote}
+                placeholder="optional"
+              />
+            </>
+          )}
+
+          <View style={styles.cartTotalRow}>
+            <Text style={[styles.cartTotalLabel, styles.finalLabel]}>
+              Final total
+            </Text>
+            <Text style={[styles.cartTotalValue, styles.finalLabel]}>
+              ₹{cartTotal.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      <Text style={styles.label}>Quick Sell</Text>
+      <View style={styles.wrapRow}>
+        {quickItems.map(sv => (
           <TouchableOpacity
-            key={item.label}
-            style={[styles.menuButton, { backgroundColor: item.color }]}
+            key={sv.id}
+            style={styles.quickBtn}
             onPress={() =>
-              navigation.navigate(item.screen, { shopId, shopName, staffName })
+              selectItem(
+                { id: sv.categoryId, name: sv.categoryName },
+                sv,
+                sv.presetAmounts[0],
+              )
             }
           >
-            <Text style={styles.menuButtonText}>{item.label}</Text>
+            <Text style={styles.quickBtnText}>{sv.name}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <TouchableOpacity onPress={switchShop} style={styles.switchLink}>
-        <Text style={styles.switchText}>Switch shop</Text>
-      </TouchableOpacity>
-    </View>
+      <Text style={styles.label}>Category</Text>
+      <View style={styles.wrapRow}>
+        {categories.map(cat => (
+          <TouchableOpacity
+            key={cat.id}
+            style={[
+              styles.pill,
+              selectedCategory?.id === cat.id && styles.pillActive,
+            ]}
+            onPress={() => {
+              setSelectedCategory(cat);
+              setSelectedSub(null);
+            }}
+          >
+            <Text
+              style={
+                selectedCategory?.id === cat.id
+                  ? styles.pillTextActive
+                  : styles.pillText
+              }
+            >
+              {cat.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {selectedCategory && (
+        <>
+          <Text style={styles.label}>Item</Text>
+          <View style={styles.wrapRow}>
+            {selectedCategory?.subVarieties?.map((sv: any) => (
+              <TouchableOpacity
+                key={sv.id}
+                style={[
+                  styles.pill,
+                  selectedSub?.id === sv.id && styles.pillActive,
+                ]}
+                onPress={() => selectItem(selectedCategory, sv)}
+              >
+                <Text
+                  style={
+                    selectedSub?.id === sv.id
+                      ? styles.pillTextActive
+                      : styles.pillText
+                  }
+                >
+                  {sv.name} ({sv.stock.toFixed(2)}
+                  {getStockUnitLabel(sv.unit)})
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
+
+      {selectedSub && (
+        <>
+          <Text style={styles.label}>
+            Quantity ({getQuantityUnitLabel(selectedSub.unit)})
+          </Text>
+          <View style={styles.wrapRow}>
+            {(selectedSub.presetAmounts || []).map((g: number) => (
+              <TouchableOpacity
+                key={g}
+                style={styles.presetBtn}
+                onPress={() => setGrams(String(g))}
+              >
+                <Text style={styles.presetText}>
+                  {g}
+                  {getQuantityUnitLabel(selectedSub.unit)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TextInput
+            style={styles.input}
+            value={grams}
+            onChangeText={setGrams}
+            keyboardType="decimal-pad"
+            placeholder="or custom amount"
+          />
+
+          {selectedSub.unit !== 'pcs' && (
+            <>
+              <Text style={styles.label}>How many?</Text>
+              <TextInput
+                style={styles.input}
+                value={count}
+                onChangeText={setCount}
+                keyboardType="number-pad"
+                placeholder="1"
+              />
+            </>
+          )}
+
+          <Text style={styles.label}>
+            Amount: ₹{billAmount.toFixed(2)}{' '}
+            {countNum > 1 ? `(${countNum} × ₹${perUnitAmount.toFixed(2)})` : ''}
+          </Text>
+
+          <TouchableOpacity style={styles.addBtn} onPress={addToCart}>
+            <Text style={styles.addBtnText}>+ Add to bill</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {cart.length > 0 && (
+        <>
+          <Text style={styles.label}>Payment method</Text>
+          <View style={styles.wrapRow}>
+            <TouchableOpacity
+              style={[
+                styles.paymentBtn,
+                payment === 'cash' && styles.paymentBtnActive,
+              ]}
+              onPress={() => setPayment('cash')}
+            >
+              <Text
+                style={
+                  payment === 'cash' ? styles.pillTextActive : styles.pillText
+                }
+              >
+                Cash
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.paymentBtn,
+                payment === 'gpay' && styles.paymentBtnActive,
+              ]}
+              onPress={() => setPayment('gpay')}
+            >
+              <Text
+                style={
+                  payment === 'gpay' ? styles.pillTextActive : styles.pillText
+                }
+              >
+                GPay
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {!!error && <Text style={styles.error}>{error}</Text>}
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={submitBill}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>
+                Complete sale — ₹{cartTotal.toFixed(2)}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </>
+      )}
+
+      {cart.length === 0 && !!error && (
+        <Text style={styles.error}>{error}</Text>
+      )}
+      <View style={{ height: 40 }} />
+    </ScrollView>
   );
 };
 
@@ -62,24 +554,131 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF4EC',
     padding: 24,
-    paddingTop: 64,
+    // paddingTop: 24,
   },
-  header: { marginBottom: 32 },
-  shopName: { fontSize: 24, fontWeight: '700', color: '#2B160C' },
-  staffName: { fontSize: 14, color: '#7A4A2B', marginTop: 4 },
-  menu: { gap: 14 },
-  menuButton: {
-    paddingVertical: 22,
-    borderRadius: 14,
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FBF4EC',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 20,
+  },
+  menuBtn: { padding: 6 },
+  menuIcon: { fontSize: 24, color: '#5C3620' },
+  shopName: { fontSize: 18, fontWeight: '700', color: '#2B160C' },
+  staffLabel: { fontSize: 12, color: '#7A4A2B' },
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#7A4A2B',
+    // marginTop: 16,
+    marginBottom: 8,
+  },
+  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 4,
+  },
+  pillActive: { backgroundColor: '#5C3620', borderColor: '#5C3620' },
+  pillText: { color: '#2B160C', fontWeight: '500' },
+  pillTextActive: { color: '#fff', fontWeight: '600' },
+  quickBtn: {
+    backgroundColor: '#5C3620',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 6,
+  },
+  quickBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  presetBtn: {
+    backgroundColor: '#E9D5BC',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginBottom: 4,
+  },
+  presetText: { color: '#5C3620', fontWeight: '600', fontSize: 13 },
+  paymentBtn: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 10,
+    padding: 12,
     alignItems: 'center',
   },
-  menuButtonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  switchLink: { marginTop: 'auto', alignSelf: 'center', paddingVertical: 20 },
-  switchText: {
+  paymentBtnActive: { backgroundColor: '#C17A3D', borderColor: '#C17A3D' },
+  input: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+  },
+  addBtn: {
+    marginTop: 16,
+    backgroundColor: '#5C7D57',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  cartBox: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+  },
+  cartTitle: { fontWeight: '700', color: '#2B160C', marginBottom: 8 },
+  cartRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F3E6D5',
+  },
+  cartItemText: { fontSize: 13, color: '#2B160C', flex: 1 },
+  cartItemAmount: { fontSize: 13, fontWeight: '600', color: '#5C3620' },
+  removeText: { color: '#9C3654', fontWeight: '700', fontSize: 15 },
+  cartTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2CFAF',
+  },
+  cartTotalLabel: { fontWeight: '700', color: '#2B160C' },
+  cartTotalValue: { fontWeight: '700', color: '#C17A3D', fontSize: 16 },
+  finalLabel: { fontSize: 16, color: '#5C3620' },
+  moreOptionsLink: {
     color: '#7A4A2B',
-    fontSize: 13,
+    fontSize: 12.5,
+    marginTop: 12,
     textDecorationLine: 'underline',
   },
+  error: { color: '#9C3654', marginTop: 12 },
+  button: {
+    marginTop: 24,
+    backgroundColor: '#C17A3D',
+    paddingVertical: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
 
 export default Home;

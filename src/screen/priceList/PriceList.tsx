@@ -61,7 +61,7 @@ const PriceList = ({ route }: any) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <Text style={styles.title}>Price List</Text>
+      {/* <Text style={styles.title}>Price List</Text> */}
 
       {categories.length === 0 && (
         <Text style={styles.empty}>No products found.</Text>
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF4EC',
     padding: 24,
-    paddingTop: 48,
+    // paddingTop: 48,
   },
   center: {
     flex: 1,

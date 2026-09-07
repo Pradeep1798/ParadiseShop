@@ -19,7 +19,8 @@ import Bills from 'screen/products/Bills';
 import Needs from 'screen/products/Needs';
 import WeeklyReport from 'screen/reports/weeklyreports';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import BottomTab from './BottomTabs';
+import Catalogue from 'screen/catalogue/Catalogue';
+import DrawerNav from './DrawerTabs';
 
 const RootPaths = () => {
   const Stack = createNativeStackNavigator<RootStackScreens>();
@@ -33,7 +34,7 @@ const RootPaths = () => {
       />
       <Stack.Screen
         name={SCREENS.HOME}
-        component={BottomTab}
+        component={DrawerNav}
         options={{ headerShown: false }}
       />
 
@@ -57,7 +58,7 @@ const RootPaths = () => {
         component={Home}
         options={{ headerShown: false }}
       /> */}
-      <Stack.Screen
+      {/* <Stack.Screen
         name={SCREENS.SELL}
         component={sell}
         options={{ headerShown: false }}
@@ -92,6 +93,11 @@ const RootPaths = () => {
         component={WeeklyReport}
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name={SCREENS.CATALOGUE}
+        component={Catalogue}
+        options={{ headerShown: false }}
+      /> */}
     </Stack.Navigator>
   );
 };

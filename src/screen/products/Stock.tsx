@@ -150,7 +150,7 @@ const Stock = ({ route, navigation }: any) => {
 
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      <Text style={styles.title}>Stock In</Text>
+      {/* <Text style={styles.title}>Stock In</Text> */}
 
       {cart.length > 0 && (
         <View style={styles.cartBox}>
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF4EC',
     padding: 24,
-    paddingTop: 48,
+    // paddingTop: 48,s
   },
   center: {
     flex: 1,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#7A4A2B',
-    marginTop: 16,
+    // marginTop: 16,
     marginBottom: 8,
   },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

@@ -96,7 +96,7 @@ const Expense = ({ route, navigation }: any) => {
 
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      <Text style={styles.title}>Expense</Text>
+      {/* <Text style={styles.title}>Expense</Text> */}
 
       <Text style={styles.label}>Amount (₹)</Text>
       <TextInput
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF4EC',
     padding: 24,
-    paddingTop: 48,
+    // paddingTop: 48,
   },
   title: {
     fontSize: 22,

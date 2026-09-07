@@ -43,7 +43,6 @@ const DailyReports = ({ route }: any) => {
         where('date', '>=', cutoffStr),
       ),
     );
-
     const sales = allTx.filter((t: any) => t.type === 'sale');
     const returns = allTx.filter((t: any) => t.type === 'return');
     const byDate: Record<
@@ -86,6 +85,16 @@ const DailyReports = ({ route }: any) => {
       const key = e.description.trim().toLowerCase();
       bucket.expenseByDesc[key] = (bucket.expenseByDesc[key] || 0) + e.amount;
     });
+    const closingSnap = await getDocs(
+      query(
+        collection(db, 'shops', shopId, 'dailyClosings'),
+        where('date', '>=', cutoffStr),
+      ),
+    );
+    const closingsByDate: Record<string, any> = {};
+    closingSnap.docs.forEach(d => {
+      closingsByDate[d.id] = d.data();
+    });
 
     const result = Object.keys(byDate)
       .sort((a, b) => b.localeCompare(a))
@@ -95,13 +104,16 @@ const DailyReports = ({ route }: any) => {
           (s, v) => s + v,
           0,
         );
+
         return {
           date,
           sale: b.cashSale + b.gpaySale,
           gpay: b.gpaySale,
           expenseTotal,
           expenseByDesc: b.expenseByDesc,
-          hand: b.cashSale - expenseTotal,
+          hand: closingsByDate[date]
+            ? closingsByDate[date].finalHand
+            : b.cashSale - expenseTotal,
         };
       });
 

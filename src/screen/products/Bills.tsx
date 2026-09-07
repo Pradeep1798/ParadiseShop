@@ -41,12 +41,36 @@ const Bills = ({ route }: any) => {
   const [paymentFilter, setPaymentFilter] = useState<'cash' | 'gpay' | null>(
     null,
   );
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
 
   const today = new Date().toISOString().slice(0, 10);
+  const isToday = selectedDate === new Date().toISOString().slice(0, 10);
+
+  const changeDay = (offset: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + offset);
+    const newDate = d.toISOString().slice(0, 10);
+    if (newDate > new Date().toISOString().slice(0, 10)) return; // can't go into the future
+    setSelectedDate(newDate);
+  };
+
+  const formatDateHeader = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const yestStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    if (dateStr === todayStr) return 'Today';
+    if (dateStr === yestStr) return 'Yesterday';
+    return d.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
 
   const loadData = useCallback(async () => {
     const db = getFirestore();
-
     const catSnap = await getDocs(
       collection(db, 'shops', shopId, 'categories'),
     );
@@ -54,7 +78,7 @@ const Bills = ({ route }: any) => {
     const txSnap = await getDocs(
       query(
         collection(db, 'shops', shopId, 'transactions'),
-        where('date', '==', today),
+        where('date', '==', selectedDate),
       ),
     );
     const all = txSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -92,11 +116,13 @@ const Bills = ({ route }: any) => {
     }));
 
     setBills(billsList.sort((a: any, b: any) => b.timestamp - a.timestamp));
-  }, [shopId, today]);
+  }, [shopId, selectedDate]);
 
   React.useEffect(() => {
+    setLoading(true);
     loadData().finally(() => setLoading(false));
   }, [loadData]);
+
   const staffOptions = Array.from(new Set(bills.map(b => b.staffName)));
   const onRefresh = async () => {
     setRefreshing(true);
@@ -230,7 +256,32 @@ const Bills = ({ route }: any) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Text style={styles.title}>Today's Bills</Text>
+        {/* <Text style={styles.title}>Today's Bills</Text> */}
+        <View style={styles.dateNav}>
+          <TouchableOpacity
+            onPress={() => changeDay(-1)}
+            style={styles.dateNavBtn}
+          >
+            <Text style={styles.dateNavArrow}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.dateNavLabel}>
+            {formatDateHeader(selectedDate)}
+          </Text>
+          <TouchableOpacity
+            onPress={() => changeDay(1)}
+            style={styles.dateNavBtn}
+            disabled={isToday}
+          >
+            <Text
+              style={[
+                styles.dateNavArrow,
+                isToday && styles.dateNavArrowDisabled,
+              ]}
+            >
+              ›
+            </Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.filterRow}>
           <Text style={styles.subtitle}>
             {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''} ·
@@ -402,6 +453,10 @@ const Bills = ({ route }: any) => {
                 </View>
               )}
 
+              {!!bill.items[0]?.note && (
+                <Text style={styles.noteText}>📝 {bill.items[0].note}</Text>
+              )}
+
               <View style={styles.footerRow}>
                 <View style={styles.leftGroup}>
                   {editingPayment === bill.billId ? (
@@ -560,7 +615,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF4EC',
     padding: 24,
-    paddingTop: 48,
+    // paddingTop: 48,
   },
   center: {
     flex: 1,
@@ -569,7 +624,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF4EC',
   },
   title: { fontSize: 22, fontWeight: '700', color: '#2B160C' },
-  subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 4, marginBottom: 20 },
+  subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 1, marginBottom: 20 },
   empty: { color: '#7A4A2B', textAlign: 'center', marginTop: 40 },
   card: {
     backgroundColor: '#fff',
@@ -578,6 +633,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     marginBottom: 12,
+  },
+  dateNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    marginBottom: 16,
+  },
+  dateNavBtn: { padding: 6 },
+  dateNavArrow: { fontSize: 24, color: '#C17A3D', fontWeight: '700' },
+  dateNavArrowDisabled: { color: '#E2CFAF' },
+  dateNavLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2B160C',
+    minWidth: 140,
+    textAlign: 'center',
   },
   itemRow: {
     flexDirection: 'row',
@@ -706,6 +778,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   discountText: { color: '#9C3654', fontStyle: 'italic' },
+  noteText: {
+    fontSize: 12,
+    color: '#7A4A2B',
+    fontStyle: 'italic',
+    marginTop: 4,
+    marginBottom: 4,
+  },
   paymentBtnActive: { backgroundColor: '#9C3654', borderColor: '#9C3654' },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 
