@@ -23,6 +23,7 @@ import {
   computeAmount,
   computeStockDelta,
 } from 'utils/HelperFn';
+import { printReceipt } from 'utils/Printer';
 
 const Home = ({ route, navigation }: any) => {
   const { shopId, shopName, staffName, role } = route.params || {};
@@ -43,6 +44,11 @@ const Home = ({ route, navigation }: any) => {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'cash' | 'gpay' | 'split'>(
+    'cash',
+  );
+  const [splitCash, setSplitCash] = useState('0');
+  const [splitGpay, setSplitGpay] = useState('0');
 
   const loadCategories = useCallback(async () => {
     const db = getFirestore();
@@ -145,10 +151,19 @@ const Home = ({ route, navigation }: any) => {
   const discountNum = parseFloat(billDiscount) || 0;
   const excessNum = parseFloat(billExcess) || 0;
   const cartTotal = Math.max(0, cartSubtotal - discountNum + excessNum);
+  const splitCashNum = parseFloat(splitCash) || 0;
+  const splitGpayNum = parseFloat(splitGpay) || 0;
+  const splitTotal = splitCashNum + splitGpayNum;
+  const splitMismatch =
+    paymentMode === 'split' && Math.abs(splitTotal - cartTotal) > 0.01;
 
   const submitBill = async () => {
     if (cart.length === 0) {
       setError('Add at least one item before completing the sale');
+      return;
+    }
+    if (splitMismatch) {
+      setError('Cash + GPay must equal the final total');
       return;
     }
     setSaving(true);
@@ -204,6 +219,42 @@ const Home = ({ route, navigation }: any) => {
         };
       });
 
+      // Now split each item's finalAmount into cash/gpay portions proportionally
+      const finalTotal = itemsWithFinal.reduce((s, i) => s + i.finalAmount, 0);
+      const cashAmount =
+        paymentMode === 'cash'
+          ? finalTotal
+          : paymentMode === 'gpay'
+          ? 0
+          : splitCashNum;
+
+      const itemsWithPayment = itemsWithFinal.map((item, index) => {
+        const isLastItem = index === itemsWithFinal.length - 1;
+        const share = finalTotal > 0 ? item.finalAmount / finalTotal : 0;
+        let cashPortion: number, gpayPortion: number;
+        if (isLastItem) {
+          const cashSoFar = itemsWithFinal
+            .slice(0, -1)
+            .reduce(
+              (s, i) =>
+                s +
+                Number(
+                  (
+                    cashAmount *
+                    (finalTotal > 0 ? i.finalAmount / finalTotal : 0)
+                  ).toFixed(2),
+                ),
+              0,
+            );
+          cashPortion = Number((cashAmount - cashSoFar).toFixed(2));
+          gpayPortion = Number((item.finalAmount - cashPortion).toFixed(2));
+        } else {
+          cashPortion = Number((cashAmount * share).toFixed(2));
+          gpayPortion = Number((item.finalAmount - cashPortion).toFixed(2));
+        }
+        return { ...item, cashPortion, gpayPortion };
+      });
+
       const byCategory: Record<string, any[]> = {};
       itemsWithFinal.forEach(item => {
         if (!byCategory[item.categoryId]) byCategory[item.categoryId] = [];
@@ -227,7 +278,7 @@ const Home = ({ route, navigation }: any) => {
         });
       }
 
-      for (const item of itemsWithFinal) {
+      for (const item of itemsWithPayment) {
         await addDoc(collection(db, 'shops', shopId, 'transactions'), {
           type: 'sale',
           billId,
@@ -244,11 +295,30 @@ const Home = ({ route, navigation }: any) => {
           discount: item.discount,
           excess: item.excess,
           finalAmount: item.finalAmount,
-          paymentMethod: payment,
+          cashPortion: item.cashPortion,
+          gpayPortion: item.gpayPortion,
+          paymentMethod: paymentMode, // 'cash' | 'gpay' | 'split' — kept for display/badges
           note: note.trim() || null,
         });
       }
-
+try {
+  await printReceipt({
+    shopName,
+    billItems: itemsWithPayment.map((i) => ({
+      name: i.subVarietyName,
+      qty: i.pieceInfo || `${i.quantity}${i.unit}`,
+      amount: i.billAmount,
+    })),
+    discount: discountNum,
+    // excess: excessNum,
+    total: cartTotal,
+    paymentMethod: paymentMode,
+    staffName,
+    timestamp: Date.now(),
+  });
+} catch (e) {
+  console.log('Print skipped or failed:', e);
+}
       setCart([]);
       setBillDiscount('0');
       setBillExcess('0');
@@ -277,16 +347,6 @@ const Home = ({ route, navigation }: any) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      {/* <View style={styles.header}> */}
-      {/* <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.menuBtn}>
-          <Text style={styles.menuIcon}>☰</Text>
-        </TouchableOpacity> */}
-      {/* <View>
-          <Text style={styles.shopName}>{shopName}</Text>
-          <Text style={styles.staffLabel}>{staffName}</Text>
-        </View> */}
-      {/* </View> */}
-
       {cart.length > 0 && (
         <View style={styles.cartBox}>
           <Text style={styles.cartTitle}>
@@ -494,13 +554,15 @@ const Home = ({ route, navigation }: any) => {
             <TouchableOpacity
               style={[
                 styles.paymentBtn,
-                payment === 'cash' && styles.paymentBtnActive,
+                paymentMode === 'cash' && styles.paymentBtnActive,
               ]}
-              onPress={() => setPayment('cash')}
+              onPress={() => setPaymentMode('cash')}
             >
               <Text
                 style={
-                  payment === 'cash' ? styles.pillTextActive : styles.pillText
+                  paymentMode === 'cash'
+                    ? styles.pillTextActive
+                    : styles.pillText
                 }
               >
                 Cash
@@ -509,19 +571,70 @@ const Home = ({ route, navigation }: any) => {
             <TouchableOpacity
               style={[
                 styles.paymentBtn,
-                payment === 'gpay' && styles.paymentBtnActive,
+                paymentMode === 'gpay' && styles.paymentBtnActive,
               ]}
-              onPress={() => setPayment('gpay')}
+              onPress={() => setPaymentMode('gpay')}
             >
               <Text
                 style={
-                  payment === 'gpay' ? styles.pillTextActive : styles.pillText
+                  paymentMode === 'gpay'
+                    ? styles.pillTextActive
+                    : styles.pillText
                 }
               >
                 GPay
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.paymentBtn,
+                paymentMode === 'split' && styles.paymentBtnActive,
+              ]}
+              onPress={() => {
+                setPaymentMode('split');
+                setSplitCash(cartTotal.toFixed(2));
+                setSplitGpay('0');
+              }}
+            >
+              <Text
+                style={
+                  paymentMode === 'split'
+                    ? styles.pillTextActive
+                    : styles.pillText
+                }
+              >
+                Split
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {paymentMode === 'split' && (
+            <>
+              <Text style={styles.label}>Cash amount (₹)</Text>
+              <TextInput
+                style={styles.input}
+                value={splitCash}
+                onChangeText={setSplitCash}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.label}>GPay amount (₹)</Text>
+              <TextInput
+                style={styles.input}
+                value={splitGpay}
+                onChangeText={setSplitGpay}
+                keyboardType="decimal-pad"
+              />
+              <Text
+                style={
+                  splitMismatch ? styles.splitErrorText : styles.splitOkText
+                }
+              >
+                {splitCashNum.toFixed(2)} + {splitGpayNum.toFixed(2)} = ₹
+                {splitTotal.toFixed(2)}{' '}
+                {splitMismatch ? `(should be ₹${cartTotal.toFixed(2)})` : '✓'}
+              </Text>
+            </>
+          )}
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -617,6 +730,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   paymentBtnActive: { backgroundColor: '#C17A3D', borderColor: '#C17A3D' },
+  splitErrorText: { color: '#9C3654', fontSize: 12.5, marginTop: 6 },
+  splitOkText: { color: '#5C7D57', fontSize: 12.5, marginTop: 6 },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,

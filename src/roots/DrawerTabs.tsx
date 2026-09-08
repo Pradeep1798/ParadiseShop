@@ -3,6 +3,7 @@ import React from 'react';
 import {
   View,
   Text,
+  ImageBackground,
   Pressable,
   StyleSheet,
 } from 'react-native';
@@ -11,9 +12,11 @@ import {
   createDrawerNavigator,
   DrawerContentScrollView,
 } from '@react-navigation/drawer';
+
 import Ionicons, {
   type IoniconsIconName,
 } from '@react-native-vector-icons/ionicons';
+
 import Home from 'screen/Home/Home';
 import Stock from 'screen/products/Stock';
 import Expense from 'screen/products/expense';
@@ -32,27 +35,54 @@ import { clearDeviceSession } from 'utils/HelperFn';
 const Drawer = createDrawerNavigator();
 
 /* =========================================================
+   COLORS
+========================================================= */
+
+const COLORS = {
+  chocolate: '#3A1708',
+  chocolateDark: '#260C03',
+
+  gold: '#C47A26',
+  goldLight: '#E5A84F',
+
+  cream: '#FFF9F0',
+  creamActive: '#F4E1C8',
+
+  text: '#191411',
+  chocolateText: '#65361F',
+
+  section: '#6B3820',
+
+  arrow: '#B96D27',
+
+  border: '#E3CDB6',
+
+  switchBackground: '#FBE7EC',
+  switchText: '#C21858',
+};
+
+/* =========================================================
    WITH PARAMS
 ========================================================= */
 
-const withParams = (Component: any, params: any) => (props: any) => (
-  <Component
-    {...props}
-    route={{
-      ...props.route,
-      params,
-    }}
-  />
-);
-
+const withParams = (Component: any, params: any) => (props: any) =>
+  (
+    <Component
+      {...props}
+      route={{
+        ...props.route,
+        params,
+      }}
+    />
+  );
 
 /* =========================================================
-   REUSABLE DRAWER ITEM
+   DRAWER MENU ITEM
 ========================================================= */
 
 type DrawerMenuItemProps = {
   label: string;
-icon: IoniconsIconName;
+  icon: IoniconsIconName;
   screen: string;
   navigation: any;
   state: any;
@@ -65,7 +95,6 @@ const DrawerMenuItem = ({
   navigation,
   state,
 }: DrawerMenuItemProps) => {
-
   const currentRoute = state.routes[state.index];
 
   const isActive = currentRoute.name === screen;
@@ -79,122 +108,86 @@ const DrawerMenuItem = ({
         pressed && styles.pressedMenuItem,
       ]}
     >
+      {/* ICON */}
 
-      {/* Active indicator */}
-      {isActive && (
-        <View style={styles.activeIndicator} />
-      )}
-
-      {/* Icon */}
-      <View
-        style={[
-          styles.iconContainer,
-          isActive && styles.activeIconContainer,
-        ]}
-      >
-        <Ionicons
-          name={icon}
-          size={20}
-          color={isActive ? '#5C3620' : '#795548'}
-        />
+      <View style={styles.iconContainer}>
+        <Ionicons name={icon} size={25} color={COLORS.chocolateText} />
       </View>
 
-      {/* Label */}
-      <Text
-        style={[
-          styles.menuLabel,
-          isActive && styles.activeMenuLabel,
-        ]}
-      >
+      {/* LABEL */}
+
+      <Text style={[styles.menuLabel, isActive && styles.activeMenuLabel]}>
         {label}
       </Text>
 
-      {/* Active arrow */}
-      {isActive && (
-        <Ionicons
-          name="chevron-forward"
-          size={17}
-          color="#C17A3D"
-        />
-      )}
+      {/* ARROW */}
 
+      <Ionicons name="chevron-forward" size={20} color={COLORS.arrow} />
     </Pressable>
   );
 };
 
-
 /* =========================================================
-   DRAWER SECTION
+   SECTION TITLE
 ========================================================= */
 
-const DrawerSection = ({
-  title,
-}: {
-  title: string;
-}) => (
-  <Text style={styles.sectionTitle}>
-    {title}
-  </Text>
-);
-
+const DrawerSection = ({ title }: { title: string }) => {
+  return (
+    <View style={styles.sectionWrapper}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
+  );
+};
 
 /* =========================================================
-   CUSTOM DRAWER CONTENT
+   CUSTOM DRAWER
 ========================================================= */
 
 const CustomDrawerContent = (props: any) => {
-
   const { params } = props;
 
   const canViewManagement =
-    params?.role === 'owner' ||
-    params?.role === 'manager';
+    params?.role === 'owner' || params?.role === 'manager';
 
-    console.log("params",params.role);
+  /* =======================================================
+     SWITCH SHOP
+  ======================================================= */
 
-    const switchShop = async () => {
-  await clearDeviceSession();
+  const switchShop = async () => {
+    await clearDeviceSession();
 
-  props.navigation.reset({
-    index: 0,
-    routes: [{ name: SCREENS.SHOP_PICKER }],
-  });
-};
+    props.navigation.reset({
+      index: 0,
+      routes: [
+        {
+          name: SCREENS.SHOP_PICKER,
+        },
+      ],
+    });
+  };
 
   return (
     <View style={styles.drawerContainer}>
-
       {/* ===================================================
-          HEADER
+          CHOCOLATE HEADER
       =================================================== */}
 
-      <View style={styles.header}>
+      <View style={styles.headerWrapper}>
+        <ImageBackground
+          source={require('assets/drawer.png')}
+          style={styles.headerBackground}
+          imageStyle={styles.headerImage}
+          resizeMode="cover"
+        >
+          {/* Dynamic user information */}
+          <View style={styles.userInfo}>
 
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>
-            🍫
-          </Text>
-        </View>
-
-        <View style={styles.headerText}>
-
-          <Text style={styles.shopName}>
-            Chocolate Paradise
-          </Text>
-
-          <Text style={styles.roleText}>
-            {/* {params.role === 'owner'
-              ? 'Owner'
-              : params.role === 'manager'
-              ? 'Manager'
-              : 'Staff'} */}
-              {params.staffName}
-          </Text>
-
-        </View>
-
+              <Text style={styles.staffName}>
+                {params?.staffName || 'Staff'}
+              </Text>
+            </View>
+        </ImageBackground>
       </View>
-
 
       {/* ===================================================
           MENU
@@ -203,16 +196,18 @@ const CustomDrawerContent = (props: any) => {
       <DrawerContentScrollView
         {...props}
         showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
         contentContainerStyle={styles.drawerContent}
       >
-
-        {/* ================= MAIN ================= */}
+        {/* =================================================
+            MAIN
+        ================================================= */}
 
         <DrawerSection title="MAIN" />
 
         <DrawerMenuItem
           label="Home"
-          icon="home-outline"
+          icon="home"
           screen={TABSCREENS.HOME}
           navigation={props.navigation}
           state={props.state}
@@ -226,8 +221,9 @@ const CustomDrawerContent = (props: any) => {
           state={props.state}
         />
 
-
-        {/* ================= INVENTORY ================= */}
+        {/* =================================================
+            INVENTORY
+        ================================================= */}
 
         <DrawerSection title="INVENTORY" />
 
@@ -255,8 +251,9 @@ const CustomDrawerContent = (props: any) => {
           state={props.state}
         />
 
-
-        {/* ================= SALES ================= */}
+        {/* =================================================
+            SALES & EXPENSES
+        ================================================= */}
 
         <DrawerSection title="SALES & EXPENSES" />
 
@@ -284,8 +281,9 @@ const CustomDrawerContent = (props: any) => {
           state={props.state}
         />
 
-
-        {/* ================= REPORTS ================= */}
+        {/* =================================================
+            REPORTS & MANAGEMENT
+        ================================================= */}
 
         {canViewManagement && (
           <>
@@ -293,14 +291,14 @@ const CustomDrawerContent = (props: any) => {
 
             <DrawerMenuItem
               label="Daily Reports"
-              icon="bar-chart-outline"
+              icon="bar-chart"
               screen={TABSCREENS.DAILYREPORTS}
               navigation={props.navigation}
               state={props.state}
             />
 
             <DrawerMenuItem
-              label="Weekly Report"
+              label="Sale Report"
               icon="calendar-outline"
               screen={TABSCREENS.WEEKLY_REPORT}
               navigation={props.navigation}
@@ -314,102 +312,102 @@ const CustomDrawerContent = (props: any) => {
               navigation={props.navigation}
               state={props.state}
             />
-            
-            
           </>
         )}
 
+        {/* =================================================
+            SWITCH SHOP
+        ================================================= */}
 
+        <View style={styles.switchSpacer} />
+
+        <Pressable
+          onPress={switchShop}
+          style={({ pressed }) => [
+            styles.switchShopItem,
+            pressed && styles.pressedMenuItem,
+          ]}
+        >
+          <View style={styles.switchIconContainer}>
+            <Ionicons
+              name="swap-horizontal"
+              size={27}
+              color={COLORS.switchText}
+            />
+          </View>
+
+          <Text style={styles.switchShopText}>Switch Shop</Text>
+
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={COLORS.switchText}
+          />
+        </Pressable>
       </DrawerContentScrollView>
 
-<Pressable
-  onPress={switchShop}
-  style={({ pressed }) => [
-    styles.switchShopItem,
-    pressed && styles.pressedMenuItem,
-  ]}
->
-  <View style={styles.switchShopIcon}>
-    <Ionicons
-      name="swap-horizontal-outline"
-      size={20}
-      color="#9C3654"
-    />
-  </View>
-
-  <Text style={styles.switchShopText}>
-    Switch Shop
-  </Text>
-</Pressable>
       {/* ===================================================
           FOOTER
       =================================================== */}
 
       <View style={styles.footer}>
+        <View style={styles.footerIcon}>
+          <Ionicons name="storefront-outline" size={29} color={COLORS.gold} />
+        </View>
 
-        <Ionicons
-          name="storefront-outline"
-          size={18}
-          color="#8A6A52"
-        />
+        <View style={styles.footerText}>
+          <Text style={styles.footerShopName}>Chocolate Paradise</Text>
 
-        <Text style={styles.footerText}>
-          Chocolate Paradise
-        </Text>
-
+          <Text style={styles.footerCaption}>Sweetness makes life better</Text>
+        </View>
       </View>
-
     </View>
   );
 };
-
 
 /* =========================================================
    DRAWER NAVIGATION
 ========================================================= */
 
 const DrawerNav = ({ route }: any) => {
-
   const params = route.params || {};
 
   const canViewManagement =
-    params.role === 'owner' ||
-    params.role === 'manager';
+    params.role === 'owner' || params.role === 'manager';
 
   return (
     <Drawer.Navigator
-
-      drawerContent={(props) => (
-        <CustomDrawerContent {...props}  params={params} />
+      drawerContent={props => (
+        <CustomDrawerContent {...props} params={params} />
       )}
-
       screenOptions={{
-        /* ================= HEADER ================= */
-
         headerStyle: {
-          backgroundColor: '#5C3620',
+          backgroundColor: COLORS.chocolate,
         },
 
-        headerTintColor: '#FBF4EC',
+        headerTintColor: COLORS.cream,
 
         headerTitleStyle: {
           fontWeight: '700',
         },
 
+        headerShadowVisible: false,
 
-        /* ================= DRAWER ================= */
+        /* ===============================================
+           COMPACT DRAWER
+        =============================================== */
 
         drawerStyle: {
-          backgroundColor: '#FFF9F3',
-          width: 290,
+          width: 300,
+          backgroundColor: COLORS.cream,
         },
 
+        drawerType: 'front',
+
+        overlayColor: 'rgba(30, 10, 4, 0.62)',
       }}
     >
-
-      {/* =================================================
-          MAIN
-      ================================================= */}
+      {/* HOME */}
 
       <Drawer.Screen
         name={TABSCREENS.HOME}
@@ -419,6 +417,8 @@ const DrawerNav = ({ route }: any) => {
         }}
       />
 
+      {/* ALERTS */}
+
       <Drawer.Screen
         name={TABSCREENS.NOTIFY}
         component={withParams(Notifications, params)}
@@ -427,10 +427,7 @@ const DrawerNav = ({ route }: any) => {
         }}
       />
 
-
-      {/* =================================================
-          INVENTORY
-      ================================================= */}
+      {/* STOCK */}
 
       <Drawer.Screen
         name={TABSCREENS.STOCK_IN}
@@ -440,6 +437,8 @@ const DrawerNav = ({ route }: any) => {
         }}
       />
 
+      {/* NEEDS */}
+
       <Drawer.Screen
         name={TABSCREENS.NEEDS}
         component={withParams(Needs, params)}
@@ -447,6 +446,8 @@ const DrawerNav = ({ route }: any) => {
           title: 'Needed Items',
         }}
       />
+
+      {/* PRICE LIST */}
 
       <Drawer.Screen
         name={TABSCREENS.PRICELIST}
@@ -456,10 +457,7 @@ const DrawerNav = ({ route }: any) => {
         }}
       />
 
-
-      {/* =================================================
-          SALES
-      ================================================= */}
+      {/* BILLS */}
 
       <Drawer.Screen
         name={TABSCREENS.BILLS}
@@ -469,6 +467,8 @@ const DrawerNav = ({ route }: any) => {
         }}
       />
 
+      {/* CLOSE BILL */}
+
       <Drawer.Screen
         name={TABSCREENS.CLOSEBILLS}
         component={withParams(CloseBill, params)}
@@ -476,6 +476,8 @@ const DrawerNav = ({ route }: any) => {
           title: 'Close Bill',
         }}
       />
+
+      {/* EXPENSE */}
 
       <Drawer.Screen
         name={TABSCREENS.EXPENSE}
@@ -485,14 +487,10 @@ const DrawerNav = ({ route }: any) => {
         }}
       />
 
-
-      {/* =================================================
-          REPORTS & MANAGEMENT
-      ================================================= */}
+      {/* MANAGEMENT */}
 
       {canViewManagement && (
         <>
-
           <Drawer.Screen
             name={TABSCREENS.DAILYREPORTS}
             component={withParams(DailyReports, params)}
@@ -505,7 +503,7 @@ const DrawerNav = ({ route }: any) => {
             name={TABSCREENS.WEEKLY_REPORT}
             component={withParams(WeeklyReport, params)}
             options={{
-              title: 'Weekly Report',
+              title: 'Sale Report',
             }}
           />
 
@@ -516,264 +514,338 @@ const DrawerNav = ({ route }: any) => {
               title: 'Catalogue',
             }}
           />
-
         </>
       )}
-
     </Drawer.Navigator>
   );
 };
-
 
 /* =========================================================
    STYLES
 ========================================================= */
 
 const styles = StyleSheet.create({
-
   /* =======================================================
      DRAWER
   ======================================================= */
 
   drawerContainer: {
     flex: 1,
-    backgroundColor: '#FFF9F3',
+    backgroundColor: COLORS.cream,
   },
-
 
   /* =======================================================
      HEADER
+
+     Compact height so the drawer doesn't become huge.
   ======================================================= */
 
-  header: {
-    backgroundColor: '#5C3620',
-
-    paddingTop: 55,
-    paddingBottom: 22,
-    paddingHorizontal: 20,
-
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  headerWrapper: {
+    height: 275,
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: COLORS.chocolate,
   },
 
-  logoContainer: {
-    width: 52,
-    height: 52,
+  headerBackground: {
+    width: '100%',
+    height: 275,
+  },
 
-    borderRadius: 16,
+  headerImage: {
+    width: '100%',
+    height: '100%',
+  },
 
-    backgroundColor: '#F3E6D5',
+  userInfo: {
+    position: 'absolute',
+    left: 24,
+    bottom: 20,
+  },
+
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  staffName: {
+    marginLeft: 10,
+    color: '#FFF8EE',
+    fontSize: 17,
+    fontFamily: 'serif',
+    fontWeight: '500',
+  },
+  /* =======================================================
+     NOTIFICATION
+  ======================================================= */
+
+  notificationButton: {
+    position: 'absolute',
+
+    top: 18,
+    right: 16,
+
+    width: 40,
+    height: 40,
 
     alignItems: 'center',
     justifyContent: 'center',
 
-    marginRight: 14,
+    zIndex: 20,
   },
 
-  logoText: {
-    fontSize: 27,
-  },
+  /* =======================================================
+     HEADER USER INFO
+  ======================================================= */
 
-  headerText: {
-    flex: 1,
+  headerUserInfo: {
+    position: 'absolute',
+
+    left: 24,
+    right: 20,
+
+    bottom: 22,
+
+    zIndex: 10,
   },
 
   shopName: {
-    color: '#FFF9F3',
+    color: '#FFF8ED',
 
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 20,
+
+    fontFamily: 'serif',
+
+    fontWeight: '700',
+
+    letterSpacing: 0.2,
+  },
+
+  staffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+
+    marginTop: 4,
+  },
+
+  staffIcon: {
+    marginRight: 9,
   },
 
   roleText: {
-    color: '#DDBB9B',
+    marginLeft: 32,
 
-    fontSize: 13,
+    marginTop: 1,
 
-    marginTop: 4,
+    color: '#E59A38',
 
-    fontWeight: '500',
-
-    textTransform: 'capitalize',
-  },
-
-
-  /* =======================================================
-     DRAWER CONTENT
-  ======================================================= */
-
-  drawerContent: {
-    paddingTop: 6,
-    paddingBottom: 20,
-  },
-
-
-  /* =======================================================
-     SECTION TITLE
-  ======================================================= */
-
-  sectionTitle: {
-    fontSize: 11,
+    fontSize: 12,
 
     fontWeight: '800',
 
-    color: '#A1846D',
-
-    letterSpacing: 1,
-
-    marginTop: 18,
-    marginBottom: 7,
-
-    marginHorizontal: 22,
+    letterSpacing: 1.5,
   },
 
+  /* =======================================================
+     CONTENT
+  ======================================================= */
+
+  scrollView: {
+    backgroundColor: COLORS.cream,
+  },
+
+  drawerContent: {
+    paddingTop: 2,
+    paddingBottom: 6,
+  },
+
+  /* =======================================================
+     SECTIONS
+  ======================================================= */
+
+  sectionWrapper: {
+    marginTop: 10,
+    marginBottom: 3,
+
+    paddingHorizontal: 27,
+  },
+
+  sectionTitle: {
+    color: COLORS.section,
+
+    fontSize: 11.5,
+
+    fontWeight: '800',
+
+    letterSpacing: 2.2,
+  },
 
   /* =======================================================
      MENU ITEM
   ======================================================= */
 
   menuItem: {
-    minHeight: 50,
+    height: 44,
 
-    marginHorizontal: 12,
-    marginVertical: 2,
+    marginHorizontal: 13,
+    marginVertical: 1,
 
-    paddingHorizontal: 10,
+    paddingLeft: 5,
+    paddingRight: 7,
 
-    borderRadius: 13,
+    borderRadius: 12,
 
     flexDirection: 'row',
-
     alignItems: 'center',
   },
 
   activeMenuItem: {
-    backgroundColor: '#F3E6D5',
+    backgroundColor: COLORS.creamActive,
   },
 
   pressedMenuItem: {
     opacity: 0.65,
   },
 
-
-  /* =======================================================
-     ACTIVE INDICATOR
-  ======================================================= */
-
-  activeIndicator: {
-    position: 'absolute',
-
-    left: 0,
-
-    width: 4,
-    height: 28,
-
-    backgroundColor: '#C17A3D',
-
-    borderTopRightRadius: 4,
-    borderBottomRightRadius: 4,
-  },
-
-
   /* =======================================================
      ICON
   ======================================================= */
 
   iconContainer: {
-    width: 38,
-    height: 38,
-
-    borderRadius: 11,
+    width: 43,
+    height: 43,
 
     alignItems: 'center',
     justifyContent: 'center',
 
-    marginRight: 8,
+    marginRight: 6,
   },
-
-  activeIconContainer: {
-    backgroundColor: '#E8D2B9',
-  },
-
 
   /* =======================================================
-     LABEL
+     MENU TEXT
   ======================================================= */
 
   menuLabel: {
     flex: 1,
 
-    fontSize: 15,
+    color: COLORS.text,
 
-    color: '#795548',
+    fontSize: 17,
+
+    fontFamily: 'serif',
 
     fontWeight: '500',
   },
 
   activeMenuLabel: {
-    color: '#5C3620',
+    color: COLORS.chocolateText,
 
-    fontWeight: '700',
+    fontWeight: '600',
   },
 
+  /* =======================================================
+     SWITCH SHOP
+  ======================================================= */
+
+  switchSpacer: {
+    height: 4,
+  },
+
+  switchShopItem: {
+    height: 48,
+
+    marginHorizontal: 13,
+    marginTop: 5,
+    marginBottom: 7,
+
+    paddingLeft: 5,
+    paddingRight: 7,
+
+    borderRadius: 12,
+
+    flexDirection: 'row',
+    alignItems: 'center',
+
+    backgroundColor: COLORS.switchBackground,
+  },
+
+  switchIconContainer: {
+    width: 43,
+    height: 43,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    marginRight: 6,
+  },
+
+  switchShopText: {
+    flex: 1,
+
+    color: COLORS.switchText,
+
+    fontSize: 17,
+
+    fontFamily: 'serif',
+
+    fontWeight: '600',
+  },
 
   /* =======================================================
      FOOTER
   ======================================================= */
 
   footer: {
+    minHeight: 65,
+
     borderTopWidth: 1,
 
-    borderTopColor: '#EADDD0',
+    borderTopColor: COLORS.border,
 
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 21,
+    paddingVertical: 6,
 
     flexDirection: 'row',
+    alignItems: 'center',
+
+    backgroundColor: COLORS.cream,
+  },
+
+  footerIcon: {
+    width: 40,
+    height: 40,
 
     alignItems: 'center',
+    justifyContent: 'center',
+
+    marginRight: 7,
   },
 
   footerText: {
-    marginLeft: 9,
-
-    color: '#8A6A52',
-
-    fontSize: 12,
-
-    fontWeight: '500',
+    flex: 1,
   },
 
-  switchShopItem: {
-  minHeight: 50,
-  marginHorizontal: 12,
-  marginBottom: 12,
-  paddingHorizontal: 10,
-  borderRadius: 13,
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#FCEFF2',
-},
+  footerShopName: {
+    color: COLORS.chocolateText,
 
-switchShopIcon: {
-  width: 38,
-  height: 38,
-  borderRadius: 11,
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginRight: 8,
-},
+    fontSize: 15,
 
-switchShopText: {
-  flex: 1,
-  fontSize: 15,
-  color: '#670d28',
-  fontWeight: '700',
-},
+    fontFamily: 'serif',
 
+    fontWeight: '600',
+  },
+
+  footerCaption: {
+    color: '#AA704A',
+
+    fontSize: 10.5,
+
+    marginTop: 1,
+
+    fontFamily: 'serif',
+
+    fontStyle: 'italic',
+  },
 });
 
 export default DrawerNav;

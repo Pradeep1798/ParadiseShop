@@ -497,10 +497,17 @@ const Bills = ({ route }: any) => {
                             styles.badgeText,
                             bill.paymentMethod === 'gpay'
                               ? styles.badgeTextGpay
+                              : bill.paymentMethod === 'split'
+                              ? styles.badgeTextSplit
                               : styles.badgeTextCash,
                           ]}
                         >
-                          {bill.paymentMethod === 'gpay' ? 'GPay' : 'Cash'} ✎
+                          {bill.paymentMethod === 'split'
+                            ? 'Split'
+                            : bill.paymentMethod === 'gpay'
+                            ? 'GPay'
+                            : 'Cash'}
+                          ✎
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -678,6 +685,7 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 10.5, fontWeight: '700' },
   badgeTextCash: { color: '#5C7D57' },
   badgeTextGpay: { color: '#3A6EA5' },
+  badgeTextSplit: { color: '#C21858' },
   staffName: { fontSize: 12, color: '#9C8768', fontWeight: '500' },
   amount: { fontSize: 15, fontWeight: '700', color: '#5C3620' },
   search: {

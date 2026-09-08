@@ -27,6 +27,22 @@ const WeeklyReport = ({ route }: any) => {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<any[]>([]);
+  const [reportMode, setReportMode] = useState<'weekly' | 'monthly'>('weekly');
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+
+  const changeMonth = (offset: number) => {
+    const d = new Date(selectedMonth);
+    d.setMonth(d.getMonth() + offset);
+    if (d > new Date()) return; // can't go into the future
+    setSelectedMonth(d);
+  };
+
+  const getMonthLabel = (d: Date) =>
+    d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+  const isCurrentMonth =
+    selectedMonth.getFullYear() === new Date().getFullYear() &&
+    selectedMonth.getMonth() === new Date().getMonth();
 
   const loadHistory = useCallback(async () => {
     const raw = await AsyncStorage.getItem(`${HISTORY_KEY}_${shopId}`);
@@ -41,23 +57,39 @@ const WeeklyReport = ({ route }: any) => {
     setGenerating(true);
     setError('');
     try {
-      const db = getFirestore();
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 7);
-      const startStr = startDate.toISOString().slice(0, 10);
-      const endStr = endDate.toISOString().slice(0, 10);
+      let startStr: string, endStr: string, periodLabel: string;
 
+      if (reportMode === 'weekly') {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - 7);
+        startStr = startDate.toISOString().slice(0, 10);
+        endStr = endDate.toISOString().slice(0, 10);
+        periodLabel = `${startStr} to ${endStr}`;
+      } else {
+        const year = selectedMonth.getFullYear();
+        const month = selectedMonth.getMonth();
+        const monthStart = new Date(year, month, 1);
+        const monthEnd = new Date(year, month + 1, 0); // last calendar day of the month
+        const today = new Date();
+        const effectiveEnd = isCurrentMonth ? today : monthEnd;
+        startStr = monthStart.toISOString().slice(0, 10);
+        endStr = effectiveEnd.toISOString().slice(0, 10);
+        periodLabel = getMonthLabel(selectedMonth);
+      }
+      const db = getFirestore();
       const txSnap = await getDocs(
         query(
           collection(db, 'shops', shopId, 'transactions'),
           where('date', '>=', startStr),
+          where('date', '<=', endStr),
         ),
       );
       const expSnap = await getDocs(
         query(
           collection(db, 'shops', shopId, 'expenses'),
           where('date', '>=', startStr),
+          where('date', '<=', endStr),
         ),
       );
 
@@ -70,8 +102,15 @@ const WeeklyReport = ({ route }: any) => {
         gpayTotal = 0,
         discountTotal = 0;
       sales.forEach((t: any) => {
-        if (t.paymentMethod === 'gpay') gpayTotal += t.finalAmount;
-        else cashTotal += t.finalAmount;
+        if (t.cashPortion !== undefined) {
+          // new-style record (supports split payments)
+          cashTotal += t.cashPortion;
+          gpayTotal += t.gpayPortion;
+        } else {
+          // old record, created before split payments existed
+          if (t.paymentMethod === 'gpay') gpayTotal += t.finalAmount;
+          else cashTotal += t.finalAmount;
+        }
         discountTotal += t.discount || 0;
       });
       returns.forEach((r: any) => {
@@ -197,10 +236,12 @@ const WeeklyReport = ({ route }: any) => {
       )}`;
 
       const html = `
-        <html>
-          <body style="font-family: Helvetica; padding: 24px; color: #2B160C;">
-            <h1 style="color: #5C3620;">${shopName} — Weekly Report</h1>
-            <p style="color: #7A4A2B;">${startStr} to ${endStr}</p>
+      <html>
+        <body style="font-family: Helvetica; padding: 24px; color: #2B160C;">
+          <h1 style="color: #5C3620;">${shopName} — ${
+        reportMode === 'weekly' ? 'Weekly' : 'Monthly'
+      } Report</h1>
+          <p style="color: #7A4A2B;">${periodLabel}</p>
 
             <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
               <tr><td style="padding: 8px; font-weight: bold;">Total Sale</td><td style="padding: 8px;">₹${(
@@ -268,13 +309,15 @@ ${Object.entries(stockSoldByProduct)
 
       const pdf = await generatePDF({
         html,
-        fileName: `${shopId}_report_${endStr}`,
+        fileName: `${shopId}_${reportMode}_${endStr}`,
         base64: false,
       });
 
       const entry = {
         id: Date.now(),
-        label: `${startStr} to ${endStr}`,
+        label: `${
+          reportMode === 'weekly' ? 'Weekly' : 'Monthly'
+        }: ${periodLabel}`,
         filePath: pdf.filePath,
         generatedAt: Date.now(),
       };
@@ -285,11 +328,11 @@ ${Object.entries(stockSoldByProduct)
         JSON.stringify(updatedHistory),
       );
 
+      await notifyWeeklyReportReady(shopName);
       await Share.open({
         url: `file://${pdf.filePath}`,
         type: 'application/pdf',
       });
-      await notifyWeeklyReportReady(shopName);
     } catch (e: any) {
       setError('Could not generate report: ' + (e.message || 'unknown error'));
     } finally {
@@ -312,11 +355,68 @@ ${Object.entries(stockSoldByProduct)
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Weekly Report</Text>
+      <Text style={styles.title}>Sale Report</Text>
       <Text style={styles.subtitle}>
-        Last 7 days — sales, discounts, expenses, stock in, top & lowest
+        Detailed report — sales, discounts, expenses, stock in, top & lowest
         products
       </Text>
+
+      <View style={styles.modeRow}>
+        <TouchableOpacity
+          style={[
+            styles.modeBtn,
+            reportMode === 'weekly' && styles.modeBtnActive,
+          ]}
+          onPress={() => setReportMode('weekly')}
+        >
+          <Text
+            style={
+              reportMode === 'weekly' ? styles.modeTextActive : styles.modeText
+            }
+          >
+            Weekly
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.modeBtn,
+            reportMode === 'monthly' && styles.modeBtnActive,
+          ]}
+          onPress={() => setReportMode('monthly')}
+        >
+          <Text
+            style={
+              reportMode === 'monthly' ? styles.modeTextActive : styles.modeText
+            }
+          >
+            Monthly
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {reportMode === 'monthly' && (
+        <View style={styles.monthNav}>
+          <TouchableOpacity onPress={() => changeMonth(-1)}>
+            <Text style={styles.monthNavArrow}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.monthNavLabel}>
+            {getMonthLabel(selectedMonth)}
+          </Text>
+          <TouchableOpacity
+            onPress={() => changeMonth(1)}
+            disabled={isCurrentMonth}
+          >
+            <Text
+              style={[
+                styles.monthNavArrow,
+                isCurrentMonth && styles.monthNavArrowDisabled,
+              ]}
+            >
+              ›
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -361,7 +461,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF4EC',
     padding: 24,
-    paddingTop: 48,
+    // paddingTop: 48,
   },
   title: { fontSize: 22, fontWeight: '700', color: '#2B160C' },
   subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 4, marginBottom: 20 },
@@ -392,6 +492,35 @@ const styles = StyleSheet.create({
   },
   historyLabel: { fontSize: 13, color: '#2B160C', fontWeight: '500' },
   historyDate: { fontSize: 12, color: '#9C8768' },
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  modeBtn: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modeBtnActive: { backgroundColor: '#3A6EA5', borderColor: '#3A6EA5' },
+  modeText: { color: '#2B160C', fontWeight: '600' },
+  modeTextActive: { color: '#fff', fontWeight: '700' },
+  monthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    marginBottom: 16,
+  },
+  monthNavArrow: { fontSize: 24, color: '#C17A3D', fontWeight: '700' },
+  monthNavArrowDisabled: { color: '#E2CFAF' },
+  monthNavLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2B160C',
+    minWidth: 160,
+    textAlign: 'center',
+  },
 });
 
 export default WeeklyReport;

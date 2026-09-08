@@ -24,13 +24,19 @@ const CloseBill = ({ route, navigation }: any) => {
     const expSnap = await getDocs(query(collection(db, 'shops', shopId, 'expenses'), where('date', '==', today)));
 
     let cash = 0, gpay = 0;
-    txSnap.docs.forEach((d) => {
-      const t = d.data() as any;
-      if (t.type === 'sale') {
-        if (t.paymentMethod === 'gpay') gpay += t.finalAmount;
-        else cash += t.finalAmount;
-      }
-    });
+ txSnap.docs.forEach(d => {
+   const t = d.data() as any;
+   if (t.type !== 'sale') return;
+   if (t.cashPortion !== undefined) {
+     // new-style record
+     cash += t.cashPortion;
+     gpay += t.gpayPortion;
+   } else {
+     // old record, before split payments existed
+     if (t.paymentMethod === 'gpay') gpay += t.finalAmount;
+     else cash += t.finalAmount;
+   }
+ });
     let expenseTotal = 0;
     expSnap.docs.forEach((d) => { expenseTotal += (d.data() as any).amount; });
 

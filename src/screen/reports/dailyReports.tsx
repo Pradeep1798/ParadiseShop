@@ -61,11 +61,18 @@ const DailyReports = ({ route }: any) => {
     };
 
     // Sales add to their date's total
-    sales.forEach((t: any) => {
-      const bucket = ensure(t.date);
+  sales.forEach((t: any) => {
+    const bucket = ensure(t.date);
+    if (t.cashPortion !== undefined) {
+      // new-style record (supports split payments)
+      bucket.cashSale += t.cashPortion;
+      bucket.gpaySale += t.gpayPortion;
+    } else {
+      // old record, created before split payments existed
       if (t.paymentMethod === 'gpay') bucket.gpaySale += t.finalAmount;
       else bucket.cashSale += t.finalAmount;
-    });
+    }
+  });
 
     // Returns subtract from the ORIGINAL sale's date and payment method
     // (a return today of something sold yesterday still adjusts yesterday's figures,
