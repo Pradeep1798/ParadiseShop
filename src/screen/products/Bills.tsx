@@ -199,54 +199,56 @@ const Bills = ({ route }: any) => {
       minute: '2-digit',
     });
 
-  const updateBillPayment = async (bill: any, newMethod: 'cash' | 'gpay') => {
-    setPaymentSaving(true);
-    try {
-      const db = getFirestore();
-      // Update every transaction in this bill to the new payment method
-      await Promise.all(
-        bill.items.map((item: any) =>
-          updateDoc(doc(db, 'shops', shopId, 'transactions', item.id), {
-            paymentMethod: newMethod,
-          }),
-        ),
-      );
-      setEditingPayment(null);
-      await loadData();
-    } catch (e) {
-      console.log('Could not update payment method');
-    } finally {
-      setPaymentSaving(false);
-    }
-  };
-
-  const searchLower = search.trim().toLowerCase();
-  const filteredBills = bills.filter(bill => {
-    if (staffFilter && bill.staffName !== staffFilter) return false;
-    if (paymentFilter && bill.paymentMethod !== paymentFilter) return false;
-    return true;
-  });
-
-  const activeFilterCount = (staffFilter ? 1 : 0) + (paymentFilter ? 1 : 0);
-
-  const todaysTotal = bills.reduce((sum, b) => sum + b.total, 0);
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#7A4A2B" />
-      </View>
+const updateBillPayment = async (bill: any, newMethod: 'cash' | 'gpay') => {
+  setPaymentSaving(true);
+  try {
+    const db = getFirestore();
+    await Promise.all(
+      bill.items.map((item: any) =>
+        updateDoc(doc(db, 'shops', shopId, 'transactions', item.id), {
+          paymentMethod: newMethod,
+          cashPortion: newMethod === 'cash' ? item.finalAmount : 0,
+          gpayPortion: newMethod === 'gpay' ? item.finalAmount : 0,
+        }),
+      ),
     );
+    setEditingPayment(null);
+    await loadData();
+  } catch (e) {
+    console.log('Could not update payment method');
+  } finally {
+    setPaymentSaving(false);
   }
+};
 
-  console.log('render, returningItem is:', returningItem);
+const searchLower = search.trim().toLowerCase();
+const filteredBills = bills.filter(bill => {
+  if (staffFilter && bill.staffName !== staffFilter) return false;
+  if (paymentFilter && bill.paymentMethod !== paymentFilter) return false;
+  return true;
+});
 
-  const openReturn = (item: any) => {
-    setReturningItem(item);
-    setReturnQty(String(item.quantity - item.returnedQty));
-    setRefundPayment(item.paymentMethod); // defaults to how it was originally paid
-    setReturnError('');
-  };
+const activeFilterCount = (staffFilter ? 1 : 0) + (paymentFilter ? 1 : 0);
+
+const todaysTotal = bills.reduce((sum, b) => sum + b.total, 0);
+
+if (loading) {
+  return (
+    <View style={styles.center}>
+      <ActivityIndicator size="large" color="#7A4A2B" />
+    </View>
+  );
+}
+
+console.log('render, returningItem is:', returningItem);
+const openReturn = (item: any) => {
+  setReturningItem(item);
+  setReturnQty(String(item.quantity - item.returnedQty));
+  setRefundPayment(
+    item.paymentMethod === 'split' ? 'cash' : item.paymentMethod,
+  );
+  setReturnError('');
+};
 
   return (
     <>

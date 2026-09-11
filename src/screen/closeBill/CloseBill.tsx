@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView } from 'react-native';
 import { getFirestore, collection, getDocs, query, where, doc, setDoc, getDoc } from '@react-native-firebase/firestore';
+import { useFocusEffect } from '@react-navigation/native';
 
 const CloseBill = ({ route, navigation }: any) => {
   const { shopId, staffName } = route.params || {};
@@ -17,35 +18,59 @@ const CloseBill = ({ route, navigation }: any) => {
   const load = useCallback(async () => {
     const db = getFirestore();
 
-    const closingDoc = await getDoc(doc(db, 'shops', shopId, 'dailyClosings', today));
+    const closingDoc = await getDoc(
+      doc(db, 'shops', shopId, 'dailyClosings', today),
+    );
     if (closingDoc.exists()) setAlreadyClosed(closingDoc.data());
 
-    const txSnap = await getDocs(query(collection(db, 'shops', shopId, 'transactions'), where('date', '==', today)));
-    const expSnap = await getDocs(query(collection(db, 'shops', shopId, 'expenses'), where('date', '==', today)));
+    const txSnap = await getDocs(
+      query(
+        collection(db, 'shops', shopId, 'transactions'),
+        where('date', '==', today),
+      ),
+    );
+    const expSnap = await getDocs(
+      query(
+        collection(db, 'shops', shopId, 'expenses'),
+        where('date', '==', today),
+      ),
+    );
 
-    let cash = 0, gpay = 0;
- txSnap.docs.forEach(d => {
-   const t = d.data() as any;
-   if (t.type !== 'sale') return;
-   if (t.cashPortion !== undefined) {
-     // new-style record
-     cash += t.cashPortion;
-     gpay += t.gpayPortion;
-   } else {
-     // old record, before split payments existed
-     if (t.paymentMethod === 'gpay') gpay += t.finalAmount;
-     else cash += t.finalAmount;
-   }
- });
+    let cash = 0,
+      gpay = 0;
+    txSnap.docs.forEach(d => {
+      const t = d.data() as any;
+      if (t.type !== 'sale') return;
+      if (t.cashPortion !== undefined) {
+        // new-style record
+        cash += t.cashPortion;
+        gpay += t.gpayPortion;
+      } else {
+        // old record, before split payments existed
+        if (t.paymentMethod === 'gpay') gpay += t.finalAmount;
+        else cash += t.finalAmount;
+      }
+    });
     let expenseTotal = 0;
-    expSnap.docs.forEach((d) => { expenseTotal += (d.data() as any).amount; });
+    expSnap.docs.forEach(d => {
+      expenseTotal += (d.data() as any).amount;
+    });
 
-    setSummary({ sale: cash + gpay, cash, gpay, expenseTotal, calculatedHand: cash - expenseTotal });
+    setSummary({
+      sale: cash + gpay,
+      cash,
+      gpay,
+      expenseTotal,
+      calculatedHand: cash - expenseTotal,
+    });
   }, [shopId, today]);
 
-  React.useEffect(() => {
-    load().finally(() => setLoading(false));
-  }, [load]);
+  useFocusEffect(
+    React.useCallback(() => {
+      setLoading(true);
+      load().finally(() => setLoading(false));
+    }, [load]),
+  );
 
   const submit = async () => {
     setSaving(true);
@@ -90,8 +115,9 @@ const CloseBill = ({ route, navigation }: any) => {
       {alreadyClosed && (
         <View style={styles.warningBox}>
           <Text style={styles.warningText}>
-            Already closed by {alreadyClosed.closedBy} at {new Date(alreadyClosed.closedAt).toLocaleTimeString()}.
-            Submitting again will overwrite that record.
+            Already closed by {alreadyClosed.closedBy} at{' '}
+            {new Date(alreadyClosed.closedAt).toLocaleTimeString()}. Submitting
+            again will overwrite that record.
           </Text>
         </View>
       )}
@@ -125,13 +151,26 @@ const CloseBill = ({ route, navigation }: any) => {
 
       <View style={styles.finalBox}>
         <Text style={styles.finalLabel}>Final Hand (after adjustment)</Text>
-        <Text style={styles.finalValue}>₹{(summary.calculatedHand + (Number(excessOrShortage) || 0)).toFixed(2)}</Text>
+        <Text style={styles.finalValue}>
+          ₹
+          {(summary.calculatedHand + (Number(excessOrShortage) || 0)).toFixed(
+            2,
+          )}
+        </Text>
       </View>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
-      <TouchableOpacity style={styles.button} onPress={submit} disabled={saving}>
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Confirm & Close</Text>}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={submit}
+        disabled={saving}
+      >
+        {saving ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Confirm & Close</Text>
+        )}
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />
