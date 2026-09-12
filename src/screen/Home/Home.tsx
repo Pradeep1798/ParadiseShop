@@ -6,17 +6,8 @@ import {
   TextInput,
   ActivityIndicator,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
 } from 'react-native';
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  addDoc,
-} from '@react-native-firebase/firestore';
+import { splitProportionally } from 'utils/SalesCalculation';
 import {
   getQuantityUnitLabel,
   getStockUnitLabel,
@@ -26,12 +17,20 @@ import {
 } from 'utils/HelperFn';
 import { printReceipt } from 'utils/Printer';
 import ScreenContainer from 'components/ScreenContainer';
+import { useFocusRefresh } from 'utils/hooks';
+import {
+  addTransaction,
+  getCategories,
+  updateCategoryStock,
+} from 'services/Service';
+import PillGroup from 'components/PillGroup';
+import { COLORS } from 'theme/Theme';
+import SectionLabel from 'components/SectionLabel';
+import CartSummary from './Cart';
 
-const Home = ({ route, navigation }: any) => {
-  const { shopId, shopName, staffName, role } = route.params || {};
+const Home = ({ route }: any) => {
+  const { shopId, shopName, staffName } = route.params || {};
   const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [selectedSub, setSelectedSub] = useState<any>(null);
@@ -41,7 +40,6 @@ const Home = ({ route, navigation }: any) => {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [billDiscount, setBillDiscount] = useState('0');
   const [billExcess, setBillExcess] = useState('0');
-  const [payment, setPayment] = useState<'cash' | 'gpay'>('cash');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -51,21 +49,11 @@ const Home = ({ route, navigation }: any) => {
   const [splitCash, setSplitCash] = useState('0');
   const [splitGpay, setSplitGpay] = useState('0');
 
-  const loadCategories = useCallback(async () => {
-    const db = getFirestore();
-    const snap = await getDocs(collection(db, 'shops', shopId, 'categories'));
-    setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  const load = useCallback(async () => {
+    setCategories(await getCategories(shopId));
   }, [shopId]);
 
-  React.useEffect(() => {
-    loadCategories().finally(() => setLoading(false));
-  }, [loadCategories]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadCategories();
-    setRefreshing(false);
-  };
+  const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
 
   const quickItems = categories
     .flatMap(cat =>
@@ -170,57 +158,21 @@ const Home = ({ route, navigation }: any) => {
     setSaving(true);
     setError('');
     try {
-      const db = getFirestore();
       const billId = `${Date.now()}_${staffName}`;
+      const weights = cart.map(i => i.billAmount);
 
-      const itemsWithFinal = cart.map((item, index) => {
-        const isLastItem = index === cart.length - 1;
-        const share = cartSubtotal > 0 ? item.billAmount / cartSubtotal : 0;
-        let itemDiscount: number, itemExcess: number;
-        if (isLastItem) {
-          const discountSoFar = cart
-            .slice(0, -1)
-            .reduce(
-              (sum, i) =>
-                sum +
-                Number(
-                  (
-                    discountNum *
-                    (cartSubtotal > 0 ? i.billAmount / cartSubtotal : 0)
-                  ).toFixed(2),
-                ),
-              0,
-            );
-          const excessSoFar = cart
-            .slice(0, -1)
-            .reduce(
-              (sum, i) =>
-                sum +
-                Number(
-                  (
-                    excessNum *
-                    (cartSubtotal > 0 ? i.billAmount / cartSubtotal : 0)
-                  ).toFixed(2),
-                ),
-              0,
-            );
-          itemDiscount = Number((discountNum - discountSoFar).toFixed(2));
-          itemExcess = Number((excessNum - excessSoFar).toFixed(2));
-        } else {
-          itemDiscount = Number((discountNum * share).toFixed(2));
-          itemExcess = Number((excessNum * share).toFixed(2));
-        }
-        return {
-          ...item,
-          discount: itemDiscount,
-          excess: itemExcess,
-          finalAmount: Number(
-            (item.billAmount - itemDiscount + itemExcess).toFixed(2),
-          ),
-        };
-      });
+      const discounts = splitProportionally(weights, discountNum);
+      const excesses = splitProportionally(weights, excessNum);
 
-      // Now split each item's finalAmount into cash/gpay portions proportionally
+      const itemsWithFinal = cart.map((item, i) => ({
+        ...item,
+        discount: discounts[i],
+        excess: excesses[i],
+        finalAmount: Number(
+          (item.billAmount - discounts[i] + excesses[i]).toFixed(2),
+        ),
+      }));
+
       const finalTotal = itemsWithFinal.reduce((s, i) => s + i.finalAmount, 0);
       const cashAmount =
         paymentMode === 'cash'
@@ -228,36 +180,19 @@ const Home = ({ route, navigation }: any) => {
           : paymentMode === 'gpay'
           ? 0
           : splitCashNum;
+      const cashPortions = splitProportionally(
+        itemsWithFinal.map(i => i.finalAmount),
+        cashAmount,
+      );
 
-      const itemsWithPayment = itemsWithFinal.map((item, index) => {
-        const isLastItem = index === itemsWithFinal.length - 1;
-        const share = finalTotal > 0 ? item.finalAmount / finalTotal : 0;
-        let cashPortion: number, gpayPortion: number;
-        if (isLastItem) {
-          const cashSoFar = itemsWithFinal
-            .slice(0, -1)
-            .reduce(
-              (s, i) =>
-                s +
-                Number(
-                  (
-                    cashAmount *
-                    (finalTotal > 0 ? i.finalAmount / finalTotal : 0)
-                  ).toFixed(2),
-                ),
-              0,
-            );
-          cashPortion = Number((cashAmount - cashSoFar).toFixed(2));
-          gpayPortion = Number((item.finalAmount - cashPortion).toFixed(2));
-        } else {
-          cashPortion = Number((cashAmount * share).toFixed(2));
-          gpayPortion = Number((item.finalAmount - cashPortion).toFixed(2));
-        }
-        return { ...item, cashPortion, gpayPortion };
-      });
+      const itemsWithPayment = itemsWithFinal.map((item, i) => ({
+        ...item,
+        cashPortion: cashPortions[i],
+        gpayPortion: Number((item.finalAmount - cashPortions[i]).toFixed(2)),
+      }));
 
       const byCategory: Record<string, any[]> = {};
-      itemsWithFinal.forEach(item => {
+      itemsWithPayment.forEach(item => {
         if (!byCategory[item.categoryId]) byCategory[item.categoryId] = [];
         byCategory[item.categoryId].push(item);
       });
@@ -274,13 +209,11 @@ const Home = ({ route, navigation }: any) => {
             );
           return deductions > 0 ? { ...sv, stock: sv.stock - deductions } : sv;
         });
-        await updateDoc(doc(db, 'shops', shopId, 'categories', categoryId), {
-          subVarieties: updatedSubVarieties,
-        });
+        await updateCategoryStock(shopId, categoryId, updatedSubVarieties);
       }
 
       for (const item of itemsWithPayment) {
-        await addDoc(collection(db, 'shops', shopId, 'transactions'), {
+        await addTransaction(shopId, {
           type: 'sale',
           billId,
           date: new Date().toISOString().slice(0, 10),
@@ -298,10 +231,11 @@ const Home = ({ route, navigation }: any) => {
           finalAmount: item.finalAmount,
           cashPortion: item.cashPortion,
           gpayPortion: item.gpayPortion,
-          paymentMethod: paymentMode, // 'cash' | 'gpay' | 'split' — kept for display/badges
+          paymentMethod: paymentMode,
           note: note.trim() || null,
         });
       }
+
       try {
         await printReceipt({
           shopName,
@@ -311,7 +245,6 @@ const Home = ({ route, navigation }: any) => {
             amount: i.billAmount,
           })),
           discount: discountNum,
-          // excess: excessNum,
           total: cartTotal,
           paymentMethod: paymentMode,
           staffName,
@@ -320,6 +253,7 @@ const Home = ({ route, navigation }: any) => {
       } catch (e) {
         console.log('Print skipped or failed:', e);
       }
+
       setCart([]);
       setBillDiscount('0');
       setBillExcess('0');
@@ -327,7 +261,7 @@ const Home = ({ route, navigation }: any) => {
       setSplitCash('0');
       setSplitGpay('0');
       setShowMoreOptions(false);
-      await loadCategories();
+      await load();
     } catch (e) {
       setError('Something went wrong, try again');
     } finally {
@@ -338,7 +272,7 @@ const Home = ({ route, navigation }: any) => {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#7A4A2B" />
+        <ActivityIndicator size="large" color={COLORS.textMuted} />
       </View>
     );
   }
@@ -346,148 +280,23 @@ const Home = ({ route, navigation }: any) => {
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
       {cart.length > 0 && (
-        <View style={styles.cartBox}>
-          {/* Cart Header */}
-          <View style={styles.cartHeader}>
-            <View>
-              <Text style={styles.cartTitle}>Current Bill</Text>
-              <Text style={styles.cartItemCount}>
-                {cart.length} item{cart.length > 1 ? 's' : ''}
-              </Text>
-            </View>
-
-            <View style={styles.billIcon}>
-              <Text style={styles.billIconText}>₹</Text>
-            </View>
-          </View>
-
-          {/* Items */}
-          <View style={styles.cartItems}>
-            {cart.map((item, i) => (
-              <View key={i} style={styles.cartRow}>
-                <View style={styles.cartItemLeft}>
-                  <View style={styles.itemNumber}>
-                    <Text style={styles.itemNumberText}>{i + 1}</Text>
-                  </View>
-
-                  <View style={styles.itemDetails}>
-                    <Text style={styles.cartItemText} numberOfLines={1}>
-                      {item.subVarietyName}
-                    </Text>
-
-                    <Text style={styles.cartQuantity}>
-                      {item.pieceInfo ||
-                        `${item.quantity}${getQuantityUnitLabel(item.unit)}`}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.cartItemRight}>
-                  <Text style={styles.cartItemAmount}>
-                    {formatCurrency(item.billAmount)}
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.removeBtn}
-                    onPress={() => removeFromCart(i)}
-                  >
-                    <Text style={styles.removeText}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          {/* Subtotal */}
-          <View style={styles.subtotalRow}>
-            <Text style={styles.subtotalLabel}>Subtotal</Text>
-
-            <Text style={styles.subtotalValue}>
-              {formatCurrency(cartSubtotal)}
-            </Text>
-          </View>
-
-          {/* More Options */}
-          <TouchableOpacity
-            style={styles.moreOptionsBtn}
-            onPress={() => setShowMoreOptions(s => !s)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.moreOptionsLeft}>
-              <View style={styles.optionsIcon}>
-                <Text style={styles.optionsIconText}>+</Text>
-              </View>
-
-              <View>
-                <Text style={styles.moreOptionsTitle}>
-                  {showMoreOptions ? 'Hide options' : 'More options'}
-                </Text>
-
-                {!showMoreOptions && (
-                  <Text style={styles.moreOptionsSubtitle}>
-                    Discount, excess & note
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            <Text style={styles.optionsArrow}>
-              {showMoreOptions ? '⌃' : '⌄'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Extra Options */}
-          {showMoreOptions && (
-            <View style={styles.optionsBox}>
-              <Text style={styles.optionLabel}>Discount</Text>
-
-              <TextInput
-                style={styles.optionInput}
-                value={billDiscount}
-                onChangeText={setBillDiscount}
-                keyboardType="decimal-pad"
-                placeholder="₹ 0"
-                placeholderTextColor="#B89C88"
-              />
-
-              <Text style={styles.optionLabel}>Excess</Text>
-
-              <TextInput
-                style={styles.optionInput}
-                value={billExcess}
-                onChangeText={setBillExcess}
-                keyboardType="decimal-pad"
-                placeholder="₹ 0"
-                placeholderTextColor="#B89C88"
-              />
-
-              <Text style={styles.optionLabel}>Note</Text>
-
-              <TextInput
-                style={[styles.optionInput, styles.noteInput]}
-                value={note}
-                onChangeText={setNote}
-                placeholder="Add a note (optional)"
-                placeholderTextColor="#B89C88"
-                multiline
-              />
-            </View>
-          )}
-
-          {/* Final Total */}
-          <View style={styles.finalTotalBox}>
-            <View>
-              <Text style={styles.finalTotalLabel}>Final Total</Text>
-              <Text style={styles.finalTotalHint}>Amount to collect</Text>
-            </View>
-
-            <Text style={styles.finalTotalValue}>
-              {formatCurrency(cartTotal)}
-            </Text>
-          </View>
-        </View>
+        <CartSummary
+          cart={cart}
+          subtotal={cartSubtotal}
+          total={cartTotal}
+          showMoreOptions={showMoreOptions}
+          onToggleOptions={() => setShowMoreOptions(prev => !prev)}
+          discount={billDiscount}
+          excess={billExcess}
+          note={note}
+          onDiscountChange={setBillDiscount}
+          onExcessChange={setBillExcess}
+          onNoteChange={setNote}
+          onRemove={removeFromCart}
+        />
       )}
-      <Text style={styles.label}>Quick Sell</Text>
+
+      <SectionLabel>Quick Sell</SectionLabel>
       <View style={styles.wrapRow}>
         {quickItems.map(sv => (
           <TouchableOpacity
@@ -506,67 +315,51 @@ const Home = ({ route, navigation }: any) => {
         ))}
       </View>
 
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.wrapRow}>
-        {categories.map(cat => (
-          <TouchableOpacity
-            key={cat.id}
-            style={[
-              styles.pill,
-              selectedCategory?.id === cat.id && styles.pillActive,
-            ]}
-            onPress={() => {
-              setSelectedCategory(cat);
-              setSelectedSub(null);
-            }}
-          >
-            <Text
-              style={
-                selectedCategory?.id === cat.id
-                  ? styles.pillTextActive
-                  : styles.pillText
-              }
-            >
-              {cat.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SectionLabel>Category</SectionLabel>
+      <PillGroup
+        options={categories.map(cat => ({
+          key: cat.id,
+          label: cat.name,
+        }))}
+        selectedKey={selectedCategory?.id ?? null}
+        onSelect={key => {
+          const category = categories.find(cat => cat.id === key);
+
+          setSelectedCategory(category);
+          setSelectedSub(null);
+        }}
+      />
 
       {selectedCategory && (
         <>
-          <Text style={styles.label}>Item</Text>
-          <View style={styles.wrapRow}>
-            {selectedCategory?.subVarieties?.map((sv: any) => (
-              <TouchableOpacity
-                key={sv.id}
-                style={[
-                  styles.pill,
-                  selectedSub?.id === sv.id && styles.pillActive,
-                ]}
-                onPress={() => selectItem(selectedCategory, sv)}
-              >
-                <Text
-                  style={
-                    selectedSub?.id === sv.id
-                      ? styles.pillTextActive
-                      : styles.pillText
-                  }
-                >
-                  {sv.name} ({sv.stock.toFixed(2)}
-                  {getStockUnitLabel(sv.unit)})
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <SectionLabel>Item</SectionLabel>
+
+          <PillGroup
+            options={(selectedCategory.subVarieties || []).map((sv: any) => ({
+              key: sv.id,
+              label: `${sv.name} (${sv.stock.toFixed(2)}${getStockUnitLabel(
+                sv.unit,
+              )})`,
+            }))}
+            selectedKey={selectedSub?.id ?? null}
+            onSelect={key => {
+              const subVariety = selectedCategory.subVarieties?.find(
+                (sv: any) => sv.id === key,
+              );
+
+              if (subVariety) {
+                selectItem(selectedCategory, subVariety);
+              }
+            }}
+          />
         </>
       )}
 
       {selectedSub && (
         <>
-          <Text style={styles.label}>
+          <SectionLabel>
             Quantity ({getQuantityUnitLabel(selectedSub.unit)})
-          </Text>
+          </SectionLabel>
           <View style={styles.wrapRow}>
             {(selectedSub.presetAmounts || []).map((g: number) => (
               <TouchableOpacity
@@ -591,7 +384,7 @@ const Home = ({ route, navigation }: any) => {
 
           {selectedSub.unit !== 'pcs' && (
             <>
-              <Text style={styles.label}>How many?</Text>
+              <SectionLabel>How many?</SectionLabel>
               <TextInput
                 style={styles.input}
                 value={count}
@@ -602,12 +395,12 @@ const Home = ({ route, navigation }: any) => {
             </>
           )}
 
-          <Text style={styles.label}>
+          <SectionLabel>
             Amount: {formatCurrency(billAmount)}{' '}
             {countNum > 1
               ? `(${countNum} × ${formatCurrency(perUnitAmount)})`
               : ''}
-          </Text>
+          </SectionLabel>
 
           <TouchableOpacity style={styles.addBtn} onPress={addToCart}>
             <Text style={styles.addBtnText}>+ Add to bill</Text>
@@ -617,75 +410,37 @@ const Home = ({ route, navigation }: any) => {
 
       {cart.length > 0 && (
         <>
-          <Text style={styles.label}>Payment method</Text>
-          <View style={styles.wrapRow}>
-            <TouchableOpacity
-              style={[
-                styles.paymentBtn,
-                paymentMode === 'cash' && styles.paymentBtnActive,
-              ]}
-              onPress={() => setPaymentMode('cash')}
-            >
-              <Text
-                style={
-                  paymentMode === 'cash'
-                    ? styles.pillTextActive
-                    : styles.pillText
-                }
-              >
-                Cash
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.paymentBtn,
-                paymentMode === 'gpay' && styles.paymentBtnActive,
-              ]}
-              onPress={() => setPaymentMode('gpay')}
-            >
-              <Text
-                style={
-                  paymentMode === 'gpay'
-                    ? styles.pillTextActive
-                    : styles.pillText
-                }
-              >
-                GPay
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.paymentBtn,
-                paymentMode === 'split' && styles.paymentBtnActive,
-              ]}
-              onPress={() => {
-                setPaymentMode('split');
+          <SectionLabel>Payment method</SectionLabel>
+          <PillGroup
+            options={[
+              { key: 'cash', label: 'Cash' },
+              { key: 'gpay', label: 'GPay' },
+              { key: 'split', label: 'Split' },
+            ]}
+            selectedKey={paymentMode}
+            equalWidth
+            onSelect={key => {
+              const mode = key as 'cash' | 'gpay' | 'split';
+
+              setPaymentMode(mode);
+
+              if (mode === 'split') {
                 setSplitCash(cartTotal.toFixed(2));
                 setSplitGpay('0');
-              }}
-            >
-              <Text
-                style={
-                  paymentMode === 'split'
-                    ? styles.pillTextActive
-                    : styles.pillText
-                }
-              >
-                Split
-              </Text>
-            </TouchableOpacity>
-          </View>
+              }
+            }}
+          />
 
           {paymentMode === 'split' && (
             <>
-              <Text style={styles.label}>Cash amount (₹)</Text>
+              <SectionLabel>Cash amount (₹)</SectionLabel>
               <TextInput
                 style={styles.input}
                 value={splitCash}
                 onChangeText={setSplitCash}
                 keyboardType="decimal-pad"
               />
-              <Text style={styles.label}>GPay amount (₹)</Text>
+              <SectionLabel>GPay amount (₹)</SectionLabel>
               <TextInput
                 style={styles.input}
                 value={splitGpay}
@@ -698,8 +453,10 @@ const Home = ({ route, navigation }: any) => {
                 }
               >
                 {formatCurrency(splitCashNum)} + {formatCurrency(splitGpayNum)}{' '}
-                = {formatCurrency(splitTotal)}
-                {splitMismatch ? `(should be ₹${cartTotal.toFixed(2)})` : '✓'}
+                = {formatCurrency(splitTotal)}{' '}
+                {splitMismatch
+                  ? `(should be ${formatCurrency(cartTotal)})`
+                  : '✓'}
               </Text>
             </>
           )}
@@ -712,7 +469,7 @@ const Home = ({ route, navigation }: any) => {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.white} />
             ) : (
               <Text style={styles.buttonText}>
                 Complete sale — {formatCurrency(cartTotal)}
@@ -731,454 +488,56 @@ const Home = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FBF4EC',
-    padding: 24,
-    // paddingTop: 24,
-  },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FBF4EC',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginBottom: 20,
-  },
-  menuBtn: { padding: 6 },
-  menuIcon: { fontSize: 24, color: '#5C3620' },
-  shopName: { fontSize: 18, fontWeight: '700', color: '#2B160C' },
-  staffLabel: { fontSize: 12, color: '#7A4A2B' },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#7A4A2B',
-    // marginTop: 16,
-    marginBottom: 8,
+    backgroundColor: COLORS.cream,
   },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 4,
-  },
-  pillActive: { backgroundColor: '#5C3620', borderColor: '#5C3620' },
-  pillText: { color: '#2B160C', fontWeight: '500' },
-  pillTextActive: { color: '#fff', fontWeight: '600' },
   quickBtn: {
-    backgroundColor: '#5C3620',
+    backgroundColor: COLORS.cacao,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: 6,
   },
-  quickBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  quickBtnText: { color: COLORS.white, fontWeight: '600', fontSize: 13 },
   presetBtn: {
-    backgroundColor: '#E9D5BC',
+    backgroundColor: COLORS.border,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 14,
     marginBottom: 4,
   },
-  presetText: { color: '#5C3620', fontWeight: '600', fontSize: 13 },
-  paymentBtn: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-  },
-  paymentBtnActive: { backgroundColor: '#C17A3D', borderColor: '#C17A3D' },
-  splitErrorText: { color: '#9C3654', fontSize: 12.5, marginTop: 6 },
-  splitOkText: { color: '#5C7D57', fontSize: 12.5, marginTop: 6 },
+  presetText: { color: COLORS.cacao, fontWeight: '600', fontSize: 13 },
+  splitErrorText: { color: COLORS.danger, fontSize: 12.5, marginTop: 6 },
+  splitOkText: { color: COLORS.success, fontSize: 12.5, marginTop: 6 },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: '#E2CFAF',
+    borderColor: COLORS.border,
     borderRadius: 10,
     padding: 12,
     fontSize: 16,
   },
   addBtn: {
     marginTop: 16,
-    backgroundColor: '#5C7D57',
+    backgroundColor: COLORS.success,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
   },
-  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  cartBox: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-
-    shadowColor: '#5C3620',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-
-  /* ---------- HEADER ---------- */
-
-  cartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-
-  cartTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#2B160C',
-  },
-
-  cartItemCount: {
-    fontSize: 11.5,
-    color: '#9A755D',
-    marginTop: 2,
-  },
-
-  billIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#F7EBDD',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  billIconText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#C17A3D',
-  },
-
-  /* ---------- ITEMS ---------- */
-
-  cartItems: {
-    borderTopWidth: 1,
-    borderTopColor: '#F0E2D3',
-  },
-
-  cartRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-
-    minHeight: 58,
-    paddingVertical: 8,
-
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3E8DD',
-  },
-
-  cartItemLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-
-  itemNumber: {
-    width: 27,
-    height: 27,
-    borderRadius: 8,
-
-    backgroundColor: '#F8EEE5',
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    marginRight: 9,
-  },
-
-  itemNumberText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8B5A3C',
-  },
-
-  itemDetails: {
-    flex: 1,
-  },
-
-  cartItemText: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: '#2B160C',
-  },
-
-  cartQuantity: {
-    fontSize: 11.5,
-    color: '#9A755D',
-    marginTop: 3,
-  },
-
-  cartItemRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 105,
-    justifyContent: 'flex-end',
-  },
-
-  cartItemAmount: {
-    width: 72,
-    textAlign: 'right',
-
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#5C3620',
-
-    marginRight: 8,
-  },
-
-  removeBtn: {
-    width: 27,
-    height: 27,
-    borderRadius: 8,
-
-    backgroundColor: '#FBECEF',
-
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  removeText: {
-    fontSize: 19,
-    lineHeight: 20,
-    fontWeight: '500',
-    color: '#9C3654',
-  },
-
-  /* ---------- SUBTOTAL ---------- */
-
-  subtotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-
-    paddingTop: 13,
-    marginTop: 3,
-
-    borderTopWidth: 1,
-    borderTopColor: '#E2CFAF',
-  },
-
-  subtotalLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#7A4A2B',
-  },
-
-  subtotalValue: {
-    width: 80,
-    textAlign: 'right',
-
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#5C3620',
-  },
-
-  /* ---------- MORE OPTIONS ---------- */
-
-  moreOptionsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-
-    backgroundColor: '#FCF7F2',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#F0E2D3',
-  },
-
-  moreOptionsLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  optionsIcon: {
-    width: 27,
-    height: 27,
-    borderRadius: 8,
-
-    backgroundColor: '#E9D5BC',
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    marginRight: 9,
-  },
-
-  optionsIconText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#5C3620',
-  },
-
-  moreOptionsTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#5C3620',
-  },
-
-  moreOptionsSubtitle: {
-    fontSize: 10.5,
-    color: '#A17D65',
-    marginTop: 2,
-  },
-
-  optionsArrow: {
-    fontSize: 18,
-    color: '#7A4A2B',
-    fontWeight: '600',
-  },
-
-  /* ---------- OPTIONS FORM ---------- */
-
-  optionsBox: {
-    marginTop: 8,
-    padding: 12,
-
-    backgroundColor: '#FFF9F4',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#F0E2D3',
-  },
-
-  optionLabel: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#7A4A2B',
-
-    marginBottom: 5,
-    marginTop: 5,
-  },
-
-  optionInput: {
-    backgroundColor: '#FFFFFF',
-
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 9,
-
-    paddingHorizontal: 11,
-    paddingVertical: 9,
-
-    fontSize: 14,
-    color: '#2B160C',
-  },
-
-  noteInput: {
-    minHeight: 65,
-    textAlignVertical: 'top',
-  },
-
-  /* ---------- FINAL TOTAL ---------- */
-
-  finalTotalBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-
-    marginTop: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-
-    backgroundColor: '#F6E8D8',
-
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8CDAF',
-  },
-
-  finalTotalLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#5C3620',
-  },
-
-  finalTotalHint: {
-    fontSize: 10.5,
-    color: '#9A755D',
-    marginTop: 2,
-  },
-
-  finalTotalValue: {
-    minWidth: 100,
-    textAlign: 'right',
-
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#C17A3D',
-  },
-  // cartBox: {
-  //   backgroundColor: '#fff',
-  //   borderWidth: 1,
-  //   borderColor: '#E2CFAF',
-  //   borderRadius: 12,
-  //   padding: 14,
-  //   marginBottom: 20,
-  // },
-  // cartTitle: { fontWeight: '700', color: '#2B160C', marginBottom: 8 },
-  // cartRow: {
-  //   flexDirection: 'row',
-  //   justifyContent: 'space-between',
-  //   alignItems: 'center',
-  //   paddingVertical: 6,
-  //   borderTopWidth: 1,
-  //   borderTopColor: '#F3E6D5',
-  // },
-  // cartItemText: { fontSize: 13, color: '#2B160C', flex: 1 },
-  // cartItemAmount: { fontSize: 13, fontWeight: '600', color: '#5C3620' },
-  // removeText: { color: '#9C3654', fontWeight: '700', fontSize: 15 },
-  cartTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#E2CFAF',
-  },
-  cartTotalLabel: { fontWeight: '700', color: '#2B160C' },
-  cartTotalValue: { fontWeight: '700', color: '#C17A3D', fontSize: 16 },
-  finalLabel: { fontSize: 16, color: '#5C3620' },
-  moreOptionsLink: {
-    color: '#7A4A2B',
-    fontSize: 12.5,
-    marginTop: 12,
-    textDecorationLine: 'underline',
-  },
-  error: { color: '#9C3654', marginTop: 12 },
+  addBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 14 },
+  error: { color: COLORS.danger, marginTop: 12 },
   button: {
     marginTop: 24,
-    backgroundColor: '#C17A3D',
+    backgroundColor: COLORS.caramel,
     paddingVertical: 16,
     borderRadius: 10,
     alignItems: 'center',
   },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  buttonText: { color: COLORS.white, fontWeight: '700', fontSize: 15 },
 });
 
 export default Home;

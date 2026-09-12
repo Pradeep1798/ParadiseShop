@@ -12,7 +12,7 @@ import EmptyState from 'components/EmptyState';
 import { COLORS, SPACING, FONT_SIZE } from 'theme/Theme';
 import { useFocusRefresh } from 'utils/hooks';
 import { getVoids } from 'services/Service';
-import Card from 'components/Crad';
+import Card from 'components/Card';
 import ScreenContainer from 'components/ScreenContainer';
 
 const Voids = ({ route }: any) => {

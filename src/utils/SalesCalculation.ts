@@ -68,3 +68,24 @@ export function rankProductsByQuantity(sales: any[]): [string, number][] {
 export function excludeVoided(transactions: any[]): any[] {
   return transactions.filter((t) => !t.voided);
 }
+
+// Splits `totalToSplit` proportionally across items by `weights`, guaranteeing
+// the results sum to EXACTLY totalToSplit (no floating-point drift) by having
+// the last item absorb whatever rounding remainder is left over.
+export function splitProportionally(weights: number[], totalToSplit: number): number[] {
+  if (weights.length === 0) return [];
+  const totalWeight = weights.reduce((s, w) => s + w, 0);
+  const result: number[] = [];
+  let allocated = 0;
+  weights.forEach((w, i) => {
+    if (i === weights.length - 1) {
+      result.push(Number((totalToSplit - allocated).toFixed(2)));
+    } else {
+      const share = totalWeight > 0 ? w / totalWeight : 0;
+      const amt = Number((totalToSplit * share).toFixed(2));
+      result.push(amt);
+      allocated += amt;
+    }
+  });
+  return result;
+}

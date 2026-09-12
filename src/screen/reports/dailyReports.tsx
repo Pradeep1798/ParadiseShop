@@ -2,126 +2,78 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
-  RefreshControl,
   ActivityIndicator,
+  RefreshControl,
+  StyleSheet,
 } from 'react-native';
+import StatRow from 'components/StatRow';
+import EmptyState from 'components/EmptyState';
+import { COLORS, SPACING, FONT_SIZE } from 'theme/Theme';
+import { formatCurrency as formatMoney } from 'utils/HelperFn';
 import {
-  getFirestore,
-  collection,
-  getDocs,
-  query,
-  where,
-} from '@react-native-firebase/firestore';
-import { formatCurrency } from 'utils/HelperFn';
+  getDailyClosingsByRange,
+  getExpensesByDateRange,
+  getTransactionsByDateRange,
+} from 'services/Service';
+import {
+  applyReturnsToTotals,
+  computeCashGpayTotals,
+  computeExpenseBreakdown,
+  excludeVoided,
+} from 'utils/SalesCalculation';
+import { useFocusRefresh } from 'utils/hooks';
+import Card from 'components/Card';
 import ScreenContainer from 'components/ScreenContainer';
 
 const DailyReports = ({ route }: any) => {
-  const { shopId } = route.params;
+  const { shopId } = route.params || {};
   const [rows, setRows] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [daysBack, setDaysBack] = useState(7);
 
   const load = useCallback(async () => {
-    const db = getFirestore();
-
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - daysBack);
     const cutoffStr = cutoff.toISOString().slice(0, 10);
 
-    const txSnap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'transactions'),
-        where('date', '>=', cutoffStr),
-      ),
-    );
-    const allTx = txSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+    const [allTx, allExpenses, closingsByDate] = await Promise.all([
+      getTransactionsByDateRange(shopId, cutoffStr),
+      getExpensesByDateRange(shopId, cutoffStr),
+      getDailyClosingsByRange(shopId, cutoffStr),
+    ]);
 
-    const expensesSnap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'expenses'),
-        where('date', '>=', cutoffStr),
-      ),
-    );
+    const sales = excludeVoided(allTx.filter(t => t.type === 'sale'));
+    const returns = allTx.filter(t => t.type === 'return');
 
-    const sales = allTx.filter((t: any) => t.type === 'sale');
-    const returns = allTx.filter((t: any) => t.type === 'return');
-    const byDate: Record<
-      string,
-      {
-        cashSale: number;
-        gpaySale: number;
-        expenseByDesc: Record<string, number>;
-      }
-    > = {};
+    // Group everything by date first
+    const dates = new Set<string>([
+      ...sales.map(t => t.date),
+      ...allExpenses.map(e => e.date),
+    ]);
 
-    const ensure = (date: string) => {
-      if (!byDate[date])
-        byDate[date] = { cashSale: 0, gpaySale: 0, expenseByDesc: {} };
-      return byDate[date];
-    };
-
-    // Sales add to their date's total
-    sales.forEach((t: any) => {
-      const bucket = ensure(t.date);
-      if (t.cashPortion !== undefined) {
-        // new-style record (supports split payments)
-        bucket.cashSale += t.cashPortion;
-        bucket.gpaySale += t.gpayPortion;
-      } else {
-        // old record, created before split payments existed
-        if (t.paymentMethod === 'gpay') bucket.gpaySale += t.finalAmount;
-        else bucket.cashSale += t.finalAmount;
-      }
-    });
-
-    // Returns subtract from the ORIGINAL sale's date and payment method
-    // (a return today of something sold yesterday still adjusts yesterday's figures,
-    // since that's when the revenue was actually recorded)
-    returns.forEach((r: any) => {
-      const original = sales.find((s: any) => s.id === r.originalTransactionId);
-      if (!original) return;
-      const bucket = ensure(original.date);
-      const method = r.refundMethod || original.paymentMethod; // fallback for old returns made before this change
-      if (method === 'gpay') bucket.gpaySale -= r.refundAmount;
-      else bucket.cashSale -= r.refundAmount;
-    });
-
-    expensesSnap.docs.forEach(d => {
-      const e = d.data() as any;
-      const bucket = ensure(e.date);
-      const key = e.description.trim().toLowerCase();
-      bucket.expenseByDesc[key] = (bucket.expenseByDesc[key] || 0) + e.amount;
-    });
-    const closingSnap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'dailyClosings'),
-        where('date', '>=', cutoffStr),
-      ),
-    );
-    const closingsByDate: Record<string, any> = {};
-    closingSnap.docs.forEach(d => {
-      closingsByDate[d.id] = d.data();
-    });
-
-    const result = Object.keys(byDate)
+    const result = Array.from(dates)
       .sort((a, b) => b.localeCompare(a))
       .map(date => {
-        const b = byDate[date];
-        const expenseTotal = Object.values(b.expenseByDesc).reduce(
-          (s, v) => s + v,
-          0,
+        const datesSales = sales.filter(t => t.date === date);
+        const datesExpenses = allExpenses.filter(e => e.date === date);
+
+        const rawTotals = computeCashGpayTotals(datesSales);
+        const { cash, gpay } = applyReturnsToTotals(
+          rawTotals,
+          datesSales,
+          returns,
         );
+        const { byDesc, total: expenseTotal } =
+          computeExpenseBreakdown(datesExpenses);
+
         const closing = closingsByDate[date];
         return {
           date,
-          sale: b.cashSale + b.gpaySale,
-          gpay: b.gpaySale,
+          sale: cash + gpay,
+          gpay,
           expenseTotal,
-          expenseByDesc: b.expenseByDesc,
-          hand: closing ? closing.finalHand : b.cashSale - expenseTotal,
+          expenseByDesc: byDesc,
+          hand: closing ? closing.finalHand : cash - expenseTotal,
           excessOrShortage: closing ? closing.excessOrShortage : null,
           closingNote: closing ? closing.note : null,
         };
@@ -130,146 +82,58 @@ const DailyReports = ({ route }: any) => {
     setRows(result);
   }, [shopId, daysBack]);
 
-  React.useEffect(() => {
-    load().finally(() => setLoading(false));
-  }, [load]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#7A4A2B" />
+        <ActivityIndicator size="large" color={COLORS.textMuted} />
       </View>
     );
   }
 
-  const Row = ({
-    label,
-    value,
-    tone,
-    bold,
-  }: {
-    label: string;
-    value: number;
-    tone: 'income' | 'expense' | 'neutral' | 'warning';
-    bold?: boolean;
-  }) => {
-    const toneStyles = {
-      income: {
-        background: '#EEF5EC',
-        color: '#4F704B',
-        icon: '↗',
-      },
-      expense: {
-        background: '#FBECEF',
-        color: '#9C3654',
-        icon: '↘',
-      },
-      neutral: {
-        background: '#F5EEE8',
-        color: '#6B452D',
-        icon: '₹',
-      },
-      warning: {
-        background: '#FFF7DF',
-        color: '#A77A18',
-        icon: '!',
-      },
-    };
-
-    const current = toneStyles[tone];
-
-    return (
-      <View
-        style={[
-          styles.row,
-          {
-            backgroundColor: current.background,
-          },
-        ]}
-      >
-        <View style={styles.rowLeft}>
-          <View
-            style={[
-              styles.rowIcon,
-              {
-                backgroundColor: '#FFFFFF',
-              },
-            ]}
-          >
-            <Text style={[styles.rowIconText, { color: current.color }]}>
-              {current.icon}
-            </Text>
-          </View>
-
-          <Text
-            style={[
-              styles.rowLabel,
-              { color: current.color },
-              bold && styles.bold,
-            ]}
-          >
-            {label}
-          </Text>
-        </View>
-
-        <Text
-          style={[
-            styles.rowValue,
-            { color: current.color },
-            bold && styles.bold,
-          ]}
-        >
-          {formatCurrency(value)}
-        </Text>
-      </View>
-    );
-  };
-
   return (
-    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
+    <ScreenContainer onRefresh={onRefresh} refreshing={refreshing}>
+      <Text style={styles.title}>Reports</Text>
+
       {rows.length === 0 && (
-        <Text style={styles.empty}>No sales or expenses recorded yet.</Text>
+        <EmptyState text="No sales or expenses recorded yet." />
       )}
 
       {rows.map(row => (
-        <View key={row.date} style={styles.card}>
+        <Card key={row.date}>
           <Text style={styles.date}>{row.date}</Text>
-          <Row label="Sale" value={row.sale} tone="income" />
-          <Row label="GPay" value={row.gpay} tone="income" />
-          <Text style={styles.expenseHeading}>▪ EXPENSES</Text>
+          <StatRow label="Sale" value={row.sale} tone="income" />
+          <StatRow label="GPay" value={row.gpay} tone="income" />
 
+          <Text style={styles.expenseHeading}>Expense</Text>
+          {Object.keys(row.expenseByDesc).length === 0 && (
+            <Text style={styles.subRowText}>— none —</Text>
+          )}
           {Object.entries(row.expenseByDesc).map(([desc, amt]) => (
-            <View key={desc} style={styles.expenseRow}>
-              <View style={styles.expenseDot} />
-
+            <View key={desc} style={styles.subRow}>
               <Text style={styles.subRowText}>{desc}</Text>
-
               <Text style={styles.subRowValue}>
-                {formatCurrency(amt as number)}
+                {formatMoney(amt as number)}
               </Text>
             </View>
           ))}
 
+          <View style={styles.divider} />
+
           {row.excessOrShortage !== null && row.excessOrShortage !== 0 && (
-            <Row
+            <StatRow
               label={row.excessOrShortage > 0 ? 'Excess' : 'Shortage'}
               value={Math.abs(row.excessOrShortage)}
               tone={row.excessOrShortage > 0 ? 'income' : 'expense'}
             />
           )}
-
           {!!row.closingNote && (
             <Text style={styles.closingNoteText}>📝 {row.closingNote}</Text>
           )}
 
-          <Row label="Hand" value={row.hand} tone="neutral" bold />
-        </View>
+          <StatRow label="Hand" value={row.hand} tone="neutral" bold />
+        </Card>
       ))}
 
       <View style={{ height: 40 }} />
@@ -280,160 +144,51 @@ const DailyReports = ({ route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF4EC',
-    padding: 24,
-    // paddingTop: 48,
+    backgroundColor: COLORS.cream,
+    padding: SPACING.xl,
+    paddingTop: SPACING.xl,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FBF4EC',
+    backgroundColor: COLORS.cream,
   },
   title: {
-    fontSize: 22,
+    fontSize: FONT_SIZE.title,
     fontWeight: '700',
-    color: '#2B160C',
+    color: COLORS.cacaoDark,
     marginBottom: 20,
   },
-  empty: { color: '#7A4A2B', textAlign: 'center', marginTop: 40 },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E8D8C7',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 12,
-    shadowColor: '#5C3620',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  date: { fontSize: 15, fontWeight: '700', color: '#2B160C', marginBottom: 10 },
-  closingNoteText: {
-    fontSize: 12,
-    color: '#7A4A2B',
-    fontStyle: 'italic',
-    marginTop: 4,
-    marginBottom: 4,
-  },
-
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-
-    minHeight: 42,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-
-    borderRadius: 9,
-    marginBottom: 6,
-  },
-
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-
-  rowIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  rowIconText: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  rowLabel: {
-    fontSize: 13.5,
-    fontWeight: '600',
-  },
-
-  rowValue: {
-    fontSize: 13.5,
+  date: {
+    fontSize: 15,
     fontWeight: '700',
-  },
-
-  bold: {
-    fontWeight: '800',
-    fontSize: 14.5,
-  },
-  expenseSection: {
-    marginTop: 4,
-    marginBottom: 6,
-    padding: 10,
-
-    backgroundColor: '#FFF9F4',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#F0DFCC',
+    color: COLORS.cacaoDark,
+    marginBottom: 10,
   },
   expenseHeading: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#7A4A2B',
-    letterSpacing: 0.6,
-    marginTop: 10,
-    marginBottom: 7,
-    paddingHorizontal: 2,
-  },
-
-  sectionHeader: {
-    marginBottom: 7,
-  },
-
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#7A4A2B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
-  expenseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#C98B68',
-    marginRight: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    marginTop: 8,
   },
   subRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingLeft: 10,
     paddingVertical: 2,
+    marginBottom: 2,
   },
-  expenseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 5,
+  subRowText: { fontSize: 12.5, color: COLORS.textMuted },
+  subRowValue: { fontSize: 12.5, fontWeight: '600', color: COLORS.danger },
+  divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 6 },
+  closingNoteText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+    marginTop: 4,
+    marginBottom: 4,
   },
-
-  subRowText: {
-    flex: 1,
-    fontSize: 12.5,
-    color: '#6F4A35',
-  },
-
-  subRowValue: {
-    minWidth: 75,
-    textAlign: 'right',
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#9C3654',
-  },
-  divider: { height: 1, backgroundColor: '#E2CFAF', marginVertical: 6 },
 });
 
 export default DailyReports;

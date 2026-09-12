@@ -14,6 +14,7 @@ export const COLORS = {
   warning: '#B8871E',
   gpay: '#3A6EA5',
   gpayBg: '#DCE8F5',
+  white: '#ffff',
 };
 
 export const SPACING = {

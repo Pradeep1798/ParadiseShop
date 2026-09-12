@@ -5,56 +5,64 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Modal,
   ActivityIndicator,
-  ScrollView,
-  RefreshControl,
 } from 'react-native';
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  doc,
-  updateDoc,
-  addDoc,
-  query,
-  where,
-} from '@react-native-firebase/firestore';
-import { formatCurrency } from 'utils/HelperFn';
+
+import { computeStockDelta, formatCurrency } from 'utils/HelperFn';
+
 import ScreenContainer from 'components/ScreenContainer';
+import SectionLabel from 'components/SectionLabel';
+import Card from 'components/Card';
+import EmptyState from 'components/EmptyState';
+import ModalOverlay from 'components/ModalOverlay';
+import PillGroup from 'components/PillGroup';
+
+import {
+  addTransaction,
+  getCategories,
+  getTransactionsForDate,
+  updateCategoryStock,
+  updateTransaction,
+} from 'services/Service';
+
+import { excludeVoided } from 'utils/SalesCalculation';
+import { useFocusRefresh } from 'utils/hooks';
+import { COLORS } from 'theme/Theme';
+import AppButton from 'components/AppButton';
+import AppInput from 'components/AppInput';
 
 const Bills = ({ route }: any) => {
   const { shopId, staffName } = route.params;
   const [bills, setBills] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
   const [returningItem, setReturningItem] = useState<any>(null);
   const [returnQty, setReturnQty] = useState('');
   const [returnSaving, setReturnSaving] = useState(false);
   const [returnError, setReturnError] = useState('');
   const [refundPayment, setRefundPayment] = useState<'cash' | 'gpay'>('cash');
-  const [search, setSearch] = useState('');
-  const [editingPayment, setEditingPayment] = useState<string | null>(null); // billId being edited
+  const [editingPayment, setEditingPayment] = useState<string | null>(null);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
   const [staffFilter, setStaffFilter] = useState<string | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<'cash' | 'gpay' | null>(
     null,
   );
+
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
 
-  const today = new Date().toISOString().slice(0, 10);
   const isToday = selectedDate === new Date().toISOString().slice(0, 10);
-
   const changeDay = (offset: number) => {
     const d = new Date(selectedDate);
+
     d.setDate(d.getDate() + offset);
+
     const newDate = d.toISOString().slice(0, 10);
-    if (newDate > new Date().toISOString().slice(0, 10)) return; // can't go into the future
+    if (newDate > new Date().toISOString().slice(0, 10)) {
+      return;
+    }
+
     setSelectedDate(newDate);
   };
 
@@ -62,32 +70,35 @@ const Bills = ({ route }: any) => {
     const d = new Date(dateStr);
     const todayStr = new Date().toISOString().slice(0, 10);
     const yestStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    if (dateStr === todayStr) return 'Today';
-    if (dateStr === yestStr) return 'Yesterday';
+
+    if (dateStr === todayStr) {
+      return 'Today';
+    }
+
+    if (dateStr === yestStr) {
+      return 'Yesterday';
+    }
+
     return d.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
   };
+  const load = useCallback(async () => {
+    const [cats, all] = await Promise.all([
+      getCategories(shopId),
+      getTransactionsForDate(shopId, selectedDate),
+    ]);
 
-  const loadData = useCallback(async () => {
-    const db = getFirestore();
-    const catSnap = await getDocs(
-      collection(db, 'shops', shopId, 'categories'),
-    );
-    setCategories(catSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-    const txSnap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'transactions'),
-        where('date', '==', selectedDate),
-      ),
-    );
-    const all = txSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const salesToday = all.filter((t: any) => t.type === 'sale');
+    setCategories(cats);
+
+    const salesToday = excludeVoided(all.filter((t: any) => t.type === 'sale'));
+
     const returns = all.filter((t: any) => t.type === 'return');
 
     const grouped: Record<string, any> = {};
+
     salesToday.forEach((t: any) => {
       if (!grouped[t.billId]) {
         grouped[t.billId] = {
@@ -98,9 +109,11 @@ const Bills = ({ route }: any) => {
           items: [],
         };
       }
+
       const returnedForThisItem = returns
         .filter((r: any) => r.originalTransactionId === t.id)
         .reduce((sum: number, r: any) => sum + r.quantity, 0);
+
       const refundForThisItem = returns
         .filter((r: any) => r.originalTransactionId === t.id)
         .reduce((sum: number, r: any) => sum + r.refundAmount, 0);
@@ -120,25 +133,33 @@ const Bills = ({ route }: any) => {
     setBills(billsList.sort((a: any, b: any) => b.timestamp - a.timestamp));
   }, [shopId, selectedDate]);
 
-  React.useEffect(() => {
-    setLoading(true);
-    loadData().finally(() => setLoading(false));
-  }, [loadData]);
-
+  const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
   const staffOptions = Array.from(new Set(bills.map(b => b.staffName)));
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+
+  const activeFilterCount = (staffFilter ? 1 : 0) + (paymentFilter ? 1 : 0);
+
+  const openReturn = (item: any) => {
+    setReturningItem(item);
+
+    setReturnQty(String(item.quantity - item.returnedQty));
+
+    setRefundPayment(
+      item.paymentMethod === 'split' ? 'cash' : item.paymentMethod,
+    );
+
+    setReturnError('');
   };
 
   const confirmReturn = async () => {
     const qty = parseFloat(returnQty);
+
     const maxReturnable = returningItem.quantity - returningItem.returnedQty;
+
     if (!qty || qty <= 0) {
       setReturnError('Enter a valid quantity');
       return;
     }
+
     if (qty > maxReturnable) {
       setReturnError(
         `Only ${maxReturnable}${returningItem.unit} can be returned`,
@@ -148,27 +169,37 @@ const Bills = ({ route }: any) => {
 
     setReturnSaving(true);
     setReturnError('');
+
     try {
-      const db = getFirestore();
       const refundAmount = Number(
         ((qty / returningItem.quantity) * returningItem.finalAmount).toFixed(2),
       );
-      const kgToRestore = returningItem.unit === 'g' ? qty / 1000 : qty;
+
+      const restoreAmount = computeStockDelta(returningItem.unit, qty);
 
       const category = categories.find(c => c.id === returningItem.categoryId);
+
+      if (!category) {
+        setReturnError('Category not found. Try again.');
+        return;
+      }
+
       const updatedSubVarieties = category.subVarieties.map((sv: any) =>
         sv.id === returningItem.subVarietyId
-          ? { ...sv, stock: sv.stock + kgToRestore }
+          ? {
+              ...sv,
+              stock: sv.stock + restoreAmount,
+            }
           : sv,
       );
-      await updateDoc(
-        doc(db, 'shops', shopId, 'categories', returningItem.categoryId),
-        {
-          subVarieties: updatedSubVarieties,
-        },
+
+      await updateCategoryStock(
+        shopId,
+        returningItem.categoryId,
+        updatedSubVarieties,
       );
 
-      await addDoc(collection(db, 'shops', shopId, 'transactions'), {
+      await addTransaction(shopId, {
         type: 'return',
         billId: returningItem.billId,
         originalTransactionId: returningItem.id,
@@ -182,12 +213,13 @@ const Bills = ({ route }: any) => {
         quantity: qty,
         unit: returningItem.unit,
         refundAmount,
-        refundMethod: refundPayment, // ← new field
+        refundMethod: refundPayment,
       });
 
       setReturningItem(null);
       setReturnQty('');
-      await loadData();
+
+      await load();
     } catch (e) {
       setReturnError('Something went wrong, try again');
     } finally {
@@ -203,19 +235,21 @@ const Bills = ({ route }: any) => {
 
   const updateBillPayment = async (bill: any, newMethod: 'cash' | 'gpay') => {
     setPaymentSaving(true);
+
     try {
-      const db = getFirestore();
       await Promise.all(
         bill.items.map((item: any) =>
-          updateDoc(doc(db, 'shops', shopId, 'transactions', item.id), {
+          updateTransaction(shopId, item.id, {
             paymentMethod: newMethod,
             cashPortion: newMethod === 'cash' ? item.finalAmount : 0,
             gpayPortion: newMethod === 'gpay' ? item.finalAmount : 0,
           }),
         ),
       );
+
       setEditingPayment(null);
-      await loadData();
+
+      await load();
     } catch (e) {
       console.log('Could not update payment method');
     } finally {
@@ -223,51 +257,47 @@ const Bills = ({ route }: any) => {
     }
   };
 
-  const searchLower = search.trim().toLowerCase();
   const filteredBills = bills.filter(bill => {
-    if (staffFilter && bill.staffName !== staffFilter) return false;
-    if (paymentFilter && bill.paymentMethod !== paymentFilter) return false;
+    if (staffFilter && bill.staffName !== staffFilter) {
+      return false;
+    }
+
+    if (paymentFilter && bill.paymentMethod !== paymentFilter) {
+      return false;
+    }
+
     return true;
   });
-
-  const activeFilterCount = (staffFilter ? 1 : 0) + (paymentFilter ? 1 : 0);
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#7A4A2B" />
+        <ActivityIndicator size="large" color={COLORS.textMuted} />
       </View>
     );
   }
 
-  console.log('render, returningItem is:', returningItem);
-  const openReturn = (item: any) => {
-    setReturningItem(item);
-    setReturnQty(String(item.quantity - item.returnedQty));
-    setRefundPayment(
-      item.paymentMethod === 'split' ? 'cash' : item.paymentMethod,
-    );
-    setReturnError('');
-  };
-
   return (
     <>
       <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-        {/* <Text style={styles.title}>Today's Bills</Text> */}
         <View style={styles.dateNav}>
           <TouchableOpacity
             onPress={() => changeDay(-1)}
             style={styles.dateNavBtn}
+            activeOpacity={0.75}
           >
             <Text style={styles.dateNavArrow}>‹</Text>
           </TouchableOpacity>
+
           <Text style={styles.dateNavLabel}>
             {formatDateHeader(selectedDate)}
           </Text>
+
           <TouchableOpacity
             onPress={() => changeDay(1)}
             style={styles.dateNavBtn}
             disabled={isToday}
+            activeOpacity={0.75}
           >
             <Text
               style={[
@@ -279,161 +309,128 @@ const Bills = ({ route }: any) => {
             </Text>
           </TouchableOpacity>
         </View>
+
         <View style={styles.filterRow}>
           <Text style={styles.subtitle}>
-            {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''} ·{' '}
+            {filteredBills.length} bill
+            {filteredBills.length !== 1 ? 's' : ''} ·{' '}
             {formatCurrency(filteredBills.reduce((s, b) => s + b.total, 0))}{' '}
             total
           </Text>
+
           <TouchableOpacity
             style={styles.filterIconBtn}
             onPress={() => setFilterVisible(v => !v)}
+            activeOpacity={0.75}
           >
             <Text style={styles.filterIconText}>
-              🔍 Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              🔍 Filter
+              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             </Text>
           </TouchableOpacity>
         </View>
 
         {filterVisible && (
           <View style={styles.filterPanel}>
-            <Text style={styles.label}>Staff</Text>
-            <View style={styles.wrapRow}>
-              <TouchableOpacity
-                style={[styles.pill, !staffFilter && styles.pillActive]}
-                onPress={() => setStaffFilter(null)}
-              >
-                <Text
-                  style={!staffFilter ? styles.pillTextActive : styles.pillText}
-                >
-                  All
-                </Text>
-              </TouchableOpacity>
-              {staffOptions.map(name => (
-                <TouchableOpacity
-                  key={name}
-                  style={[
-                    styles.pill,
-                    staffFilter === name && styles.pillActive,
-                  ]}
-                  onPress={() => setStaffFilter(name)}
-                >
-                  <Text
-                    style={
-                      staffFilter === name
-                        ? styles.pillTextActive
-                        : styles.pillText
-                    }
-                  >
-                    {name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <SectionLabel>Staff</SectionLabel>
 
-            <Text style={styles.label}>Payment Mode</Text>
-            <View style={styles.wrapRow}>
-              <TouchableOpacity
-                style={[styles.pill, !paymentFilter && styles.pillActive]}
-                onPress={() => setPaymentFilter(null)}
-              >
-                <Text
-                  style={
-                    !paymentFilter ? styles.pillTextActive : styles.pillText
-                  }
-                >
-                  All
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.pill,
-                  paymentFilter === 'cash' && styles.pillActive,
-                ]}
-                onPress={() => setPaymentFilter('cash')}
-              >
-                <Text
-                  style={
-                    paymentFilter === 'cash'
-                      ? styles.pillTextActive
-                      : styles.pillText
-                  }
-                >
-                  Cash
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.pill,
-                  paymentFilter === 'gpay' && styles.pillActive,
-                ]}
-                onPress={() => setPaymentFilter('gpay')}
-              >
-                <Text
-                  style={
-                    paymentFilter === 'gpay'
-                      ? styles.pillTextActive
-                      : styles.pillText
-                  }
-                >
-                  GPay
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <PillGroup
+              options={[
+                {
+                  key: '',
+                  label: 'All',
+                },
+                ...staffOptions.map(name => ({
+                  key: name,
+                  label: name,
+                })),
+              ]}
+              selectedKey={staffFilter ?? ''}
+              onSelect={key => setStaffFilter(key || null)}
+            />
+
+            <View style={styles.filterSectionGap} />
+
+            <SectionLabel>Payment Mode</SectionLabel>
+
+            <PillGroup
+              options={[
+                {
+                  key: '',
+                  label: 'All',
+                },
+                {
+                  key: 'cash',
+                  label: 'Cash',
+                },
+                {
+                  key: 'gpay',
+                  label: 'GPay',
+                },
+              ]}
+              selectedKey={paymentFilter ?? ''}
+              onSelect={key =>
+                setPaymentFilter(key ? (key as 'cash' | 'gpay') : null)
+              }
+            />
 
             <TouchableOpacity
               style={styles.applyBtn}
               onPress={() => setFilterVisible(false)}
+              activeOpacity={0.8}
             >
               <Text style={styles.applyBtnText}>Apply</Text>
             </TouchableOpacity>
           </View>
         )}
-        {bills.length === 0 && (
-          <Text style={styles.empty}>No sales yet today.</Text>
-        )}
+
+        {bills.length === 0 && <EmptyState text="No sales yet today." />}
 
         {filteredBills.map(bill => {
           const billDiscountTotal = bill.items.reduce(
             (sum: number, i: any) => sum + (i.discount || 0),
             0,
           );
+
           const billExcessTotal = bill.items.reduce(
             (sum: number, i: any) => sum + (i.excess || 0),
             0,
           );
 
           return (
-            <View key={bill.billId} style={styles.card}>
+            <Card key={bill.billId}>
               {bill.items.map((item: any, i: number) => (
                 <TouchableOpacity
                   key={i}
                   style={styles.itemRow}
                   onPress={() =>
                     item.returnedQty < item.quantity &&
-                    openReturn({ ...item, billId: bill.billId })
+                    openReturn({
+                      ...item,
+                      billId: bill.billId,
+                    })
                   }
                   disabled={item.returnedQty >= item.quantity}
+                  activeOpacity={item.returnedQty < item.quantity ? 0.7 : 1}
                 >
                   <Text style={styles.itemText}>
-                    {item.subVarietyName}
-                    {''} ({item.quantity}
-                    {''} {item.unit})
+                    {item.subVarietyName} ({item.quantity} {item.unit})
                     {item.returnedQty > 0
                       ? ` — ${item.returnedQty}${item.unit} returned`
                       : ''}
                   </Text>
+
                   <Text style={styles.itemAmount}>
                     {formatCurrency(item.billAmount ?? item.finalAmount)}
                   </Text>
                 </TouchableOpacity>
               ))}
-
               {billDiscountTotal > 0 && (
                 <View style={styles.itemRow}>
                   <Text style={[styles.itemText, styles.discountText]}>
                     Discount
                   </Text>
+
                   <Text style={[styles.itemAmount, styles.discountText]}>
                     -{formatCurrency(billDiscountTotal)}
                   </Text>
@@ -445,6 +442,7 @@ const Bills = ({ route }: any) => {
                   <Text style={[styles.itemText, styles.excessText]}>
                     Excess
                   </Text>
+
                   <Text style={[styles.itemAmount, styles.excessText]}>
                     +{formatCurrency(billExcessTotal)}
                   </Text>
@@ -458,20 +456,23 @@ const Bills = ({ route }: any) => {
               <View style={styles.footerRow}>
                 <View style={styles.leftGroup}>
                   {editingPayment === bill.billId ? (
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <View style={styles.paymentEditRow}>
                       <TouchableOpacity
                         style={[styles.badge, styles.badgeCash]}
                         onPress={() => updateBillPayment(bill, 'cash')}
                         disabled={paymentSaving}
+                        activeOpacity={0.75}
                       >
                         <Text style={[styles.badgeText, styles.badgeTextCash]}>
                           Cash
                         </Text>
                       </TouchableOpacity>
+
                       <TouchableOpacity
                         style={[styles.badge, styles.badgeGpay]}
                         onPress={() => updateBillPayment(bill, 'gpay')}
                         disabled={paymentSaving}
+                        activeOpacity={0.75}
                       >
                         <Text style={[styles.badgeText, styles.badgeTextGpay]}>
                           GPay
@@ -481,6 +482,7 @@ const Bills = ({ route }: any) => {
                   ) : (
                     <TouchableOpacity
                       onPress={() => setEditingPayment(bill.billId)}
+                      activeOpacity={0.7}
                     >
                       <View style={styles.paymentBadgeContent}>
                         <Text
@@ -504,143 +506,99 @@ const Bills = ({ route }: any) => {
                       </View>
                     </TouchableOpacity>
                   )}
-                  <Text style={styles.staffName}>
+
+                  <Text style={styles.staffName} numberOfLines={1}>
                     {bill.staffName} · {formatTime(bill.timestamp)}
                   </Text>
                 </View>
+
                 <Text style={styles.amount}>{formatCurrency(bill.total)}</Text>
               </View>
-            </View>
+            </Card>
           );
         })}
 
-        <View style={{ height: 40 }} />
+        <View style={styles.bottomSpace} />
       </ScreenContainer>
-      {!!returningItem && (
-        <View style={styles.overlayContainer} pointerEvents="box-none">
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>
-                Return — {returningItem?.subVarietyName}
-              </Text>
-              <Text style={styles.modalMeta}>
-                Sold: {returningItem?.quantity}
-                {returningItem?.unit}
-                {returningItem?.returnedQty > 0
-                  ? ` (${returningItem.returnedQty}${returningItem.unit} already returned)`
-                  : ''}
-              </Text>
 
-              <Text style={styles.label}>
-                Quantity to return ({returningItem?.unit})
-              </Text>
-              <TextInput
-                style={styles.input}
-                value={returnQty}
-                onChangeText={setReturnQty}
-                keyboardType="decimal-pad"
-                autoFocus
-              />
+      <ModalOverlay visible={!!returningItem}>
+        <Text style={styles.modalTitle}>Return Item</Text>
 
-              <Text style={styles.label}>Refund via</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
-                <TouchableOpacity
-                  style={[
-                    styles.paymentBtn,
-                    refundPayment === 'cash' && styles.paymentBtnActive,
-                  ]}
-                  onPress={() => setRefundPayment('cash')}
-                >
-                  <Text
-                    style={
-                      refundPayment === 'cash'
-                        ? styles.pillTextActive
-                        : styles.pillText
-                    }
-                  >
-                    Cash
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.paymentBtn,
-                    refundPayment === 'gpay' && styles.paymentBtnActive,
-                  ]}
-                  onPress={() => setRefundPayment('gpay')}
-                >
-                  <Text
-                    style={
-                      refundPayment === 'gpay'
-                        ? styles.pillTextActive
-                        : styles.pillText
-                    }
-                  >
-                    GPay
-                  </Text>
-                </TouchableOpacity>
-              </View>
+        <Text style={styles.modalTitle}>{returningItem?.name}</Text>
 
-              {!!returnError && <Text style={styles.error}>{returnError}</Text>}
+        <AppInput
+          label={`Quantity (Available: ${returningItem?.soldQty ?? 0})`}
+          value={returnQty}
+          onChangeText={setReturnQty}
+          keyboardType="numeric"
+          placeholder="Enter quantity"
+          editable={!returnSaving}
+        />
 
-              <View style={styles.modalButtonRow}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setReturningItem(null)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.confirmBtn}
-                  onPress={confirmReturn}
-                  disabled={returnSaving}
-                >
-                  {returnSaving ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.confirmBtnText}>Confirm return</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
+        <Text style={[styles.subtitle, { marginBottom: 4}]}>
+          Refund Payment
+        </Text>
+
+        <PillGroup
+          options={[
+            { key: 'cash', label: 'Cash' },
+            { key: 'gpay', label: 'GPay' },
+          ]}
+          selectedKey={refundPayment}
+          onSelect={key => setRefundPayment(key as 'cash' | 'gpay')}
+          equalWidth
+        />
+
+        {!!returnError && <Text style={styles.error}>{returnError}</Text>}
+
+        <View style={styles.modalButtonRow}>
+          <AppButton
+            label="Confirm Return"
+            variant="danger"
+            loading={returnSaving}
+            disabled={!returnQty}
+            onPress={confirmReturn}
+            style={{ flex: 1 }}
+          />
+
+          <AppButton
+            label="Cancel"
+            variant="outline"
+            disabled={returnSaving}
+            onPress={() => {
+              setReturningItem(null);
+              setReturnQty('');
+              setReturnError('');
+            }}
+            style={{ flex: 1 }}
+          />
         </View>
-      )}
+      </ModalOverlay>
     </>
   );
 };
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FBF4EC',
-    padding: 24,
-    // paddingTop: 48,
-  },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FBF4EC',
+    backgroundColor: COLORS.cream,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#2B160C' },
-  subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 1, marginBottom: 20 },
-  empty: { color: '#7A4A2B', textAlign: 'center', marginTop: 40 },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E8D8C7',
-    borderRadius: 15,
-    padding: 15,
+
+  subtitle: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
+
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#5C3620',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
+
   dateNav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -652,12 +610,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-
-    backgroundColor: '#FFFFFF',
-
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: '#E2CFAF',
-
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -665,29 +620,70 @@ const styles = StyleSheet.create({
   dateNavArrow: {
     fontSize: 25,
     lineHeight: 28,
-    color: '#C17A3D',
+    color: COLORS.caramel,
     fontWeight: '600',
+  },
+
+  dateNavArrowDisabled: {
+    color: COLORS.border,
   },
 
   dateNavLabel: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#2B160C',
-
+    color: COLORS.cacaoDark,
     minWidth: 150,
     textAlign: 'center',
   },
 
-  dateNavArrowDisabled: { color: '#E2CFAF' },
+  filterIconBtn: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+
+  filterIconText: {
+    fontSize: 12.5,
+    color: COLORS.cacao,
+    fontWeight: '600',
+  },
+
+  filterPanel: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+
+  filterSectionGap: {
+    height: 12,
+  },
+
+  applyBtn: {
+    marginTop: 14,
+    backgroundColor: COLORS.caramel,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+
+  applyBtnText: {
+    color: COLORS.white,
+    fontWeight: '700',
+    fontSize: 13,
+  },
 
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-
     paddingVertical: 9,
     paddingHorizontal: 4,
-
     borderBottomWidth: 1,
     borderBottomColor: '#F3E8DD',
   },
@@ -695,27 +691,84 @@ const styles = StyleSheet.create({
   itemText: {
     flex: 1,
     paddingRight: 12,
-
     fontSize: 13,
     fontWeight: '600',
-    color: '#2B160C',
+    color: COLORS.cacaoDark,
     lineHeight: 19,
   },
 
   itemAmount: {
     minWidth: 75,
     textAlign: 'right',
-
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#5C3620',
+    color: COLORS.cacao,
+  },
+
+  discountText: {
+    color: '#A33D5B',
+    fontWeight: '600',
+  },
+
+  excessText: {
+    color: COLORS.success,
+    fontWeight: '600',
+  },
+
+  noteText: {
+    fontSize: 11.5,
+    color: '#806452',
+    fontStyle: 'italic',
+    backgroundColor: '#FCF7F2',
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: 8,
+    marginTop: 7,
+    marginBottom: 5,
+  },
+
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E8D8C7',
+  },
+
+  leftGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 10,
+  },
+
+  staffName: {
+    flexShrink: 1,
+    fontSize: 11,
+    color: '#9A806C',
+    fontWeight: '500',
+  },
+
+  amount: {
+    minWidth: 90,
+    textAlign: 'right',
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.caramel,
+  },
+
+  paymentEditRow: {
+    flexDirection: 'row',
+    gap: 6,
   },
 
   badge: {
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 7,
-
     minWidth: 52,
     alignItems: 'center',
   },
@@ -744,6 +797,7 @@ const styles = StyleSheet.create({
   badgeTextSplit: {
     color: '#C21858',
   },
+
   paymentBadgeContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -754,115 +808,71 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#8B6B56',
   },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-
-    marginTop: 12,
-    paddingTop: 12,
-
-    borderTopWidth: 1,
-    borderTopColor: '#E8D8C7',
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.cacaoDark,
   },
 
-  leftGroup: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-
-    gap: 8,
-
-    marginRight: 10,
-  },
-
-  staffName: {
-    flexShrink: 1,
-
-    fontSize: 11,
-    color: '#9A806C',
-    fontWeight: '500',
-  },
-
-  amount: {
-    minWidth: 90,
-    textAlign: 'right',
-
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#C17A3D',
-  },
-  search: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
+  modalMeta: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 4,
     marginBottom: 16,
   },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(43,22,12,0.5)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  filterIconBtn: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  filterIconText: { fontSize: 12.5, color: '#5C3620', fontWeight: '600' },
-  filterPanel: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-  },
-  applyBtn: {
-    marginTop: 14,
-    backgroundColor: '#C17A3D',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  applyBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  modalBox: { backgroundColor: '#fff', borderRadius: 14, padding: 20 },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#2B160C' },
-  modalMeta: { fontSize: 12, color: '#7A4A2B', marginTop: 4, marginBottom: 16 },
-  label: { fontSize: 12, fontWeight: '600', color: '#7A4A2B', marginBottom: 8 },
-  pill: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 4,
-  },
-  pillActive: { backgroundColor: '#5C3620', borderColor: '#5C3620' },
-  pillText: { color: '#2B160C', fontWeight: '500' },
-  pillTextActive: { color: '#fff', fontWeight: '600' },
+
   input: {
-    backgroundColor: '#FBF4EC',
+    backgroundColor: COLORS.cream,
     borderWidth: 1,
-    borderColor: '#E2CFAF',
+    borderColor: COLORS.border,
     borderRadius: 10,
     padding: 12,
     fontSize: 16,
+    marginBottom: 16,
   },
-  error: { color: '#9C3654', marginTop: 10 },
-  modalButtonRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
+
+  paymentRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+
+  paymentBtn: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+  },
+
+  paymentBtnActive: {
+    backgroundColor: COLORS.danger,
+    borderColor: COLORS.danger,
+  },
+
+  pillText: {
+    color: COLORS.cacaoDark,
+    fontWeight: '500',
+  },
+
+  pillTextActive: {
+    color: COLORS.white,
+    fontWeight: '600',
+  },
+
+  error: {
+    color: COLORS.danger,
+    marginTop: 10,
+  },
+
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+
   cancelBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -870,55 +880,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F3E6D5',
   },
-  cancelBtnText: { color: '#5C3620', fontWeight: '600' },
+
+  cancelBtnText: {
+    color: COLORS.cacao,
+    fontWeight: '600',
+  },
+
   confirmBtn: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
-    backgroundColor: '#9C3654',
-  },
-  confirmBtnText: { color: '#fff', fontWeight: '700' },
-  paymentBtn: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-  },
-  discountText: {
-    color: '#A33D5B',
-    fontWeight: '600',
+    backgroundColor: COLORS.danger,
   },
 
-  excessText: {
-    color: '#5C7D57',
-    fontWeight: '600',
+  confirmBtnText: {
+    color: COLORS.white,
+    fontWeight: '700',
   },
-  noteText: {
-    fontSize: 11.5,
-    color: '#806452',
-    fontStyle: 'italic',
 
-    backgroundColor: '#FCF7F2',
-
-    paddingHorizontal: 9,
-    paddingVertical: 7,
-
-    borderRadius: 8,
-
-    marginTop: 7,
-    marginBottom: 5,
-  },
-  paymentBtnActive: { backgroundColor: '#9C3654', borderColor: '#9C3654' },
-  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-
-  overlayContainer: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 999,
-    elevation: 999, // Android needs elevation too, zIndex alone isn't always enough
+  bottomSpace: {
+    height: 40,
   },
 });
 

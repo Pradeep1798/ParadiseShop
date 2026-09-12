@@ -2,20 +2,27 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
-  RefreshControl,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  query,
-  where,
-} from '@react-native-firebase/firestore';
+import { getStockUnitLabel } from 'utils/HelperFn';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { formatCurrency, getStockUnitLabel } from 'utils/HelperFn';
+import Card from 'components/Card';
+import StatRow from 'components/StatRow';
+import EmptyState from 'components/EmptyState';
+import { COLORS, SPACING, FONT_SIZE } from 'theme/Theme';
+import {
+  getCategories,
+  getExpensesByDateRange,
+  getTransactionsForDate,
+} from 'services/Service';
+import {
+  applyReturnsToTotals,
+  computeCashGpayTotals,
+  excludeVoided,
+} from 'utils/SalesCalculation';
+import { useFocusRefresh } from 'utils/hooks';
 import ScreenContainer from 'components/ScreenContainer';
 
 const HISTORY_KEY = 'weekly_report_history';
@@ -25,21 +32,21 @@ const Notifications = ({ route }: any) => {
   const [lowStock, setLowStock] = useState<any[]>([]);
   const [todaySummary, setTodaySummary] = useState<any>(null);
   const [recentReports, setRecentReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!shopId) return;
-    const db = getFirestore();
     const today = new Date().toISOString().slice(0, 10);
 
+    const [categories, allTx, expenses, historyRaw] = await Promise.all([
+      getCategories(shopId),
+      getTransactionsForDate(shopId, today),
+      getExpensesByDateRange(shopId, today, today),
+      AsyncStorage.getItem(`${HISTORY_KEY}_${shopId}`),
+    ]);
+
     // Low stock check
-    const catSnap = await getDocs(
-      collection(db, 'shops', shopId, 'categories'),
-    );
     const low: any[] = [];
-    catSnap.docs.forEach(d => {
-      const cat = d.data() as any;
+    categories.forEach(cat => {
       (cat.subVarieties || []).forEach((sv: any) => {
         if (sv.stock <= sv.lowStockThreshold) {
           low.push({
@@ -54,32 +61,12 @@ const Notifications = ({ route }: any) => {
     });
     setLowStock(low);
 
-    // Today's summary
-    const txSnap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'transactions'),
-        where('date', '==', today),
-      ),
-    );
-    const expSnap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'expenses'),
-        where('date', '==', today),
-      ),
-    );
-    let cash = 0,
-      gpay = 0;
-    txSnap.docs.forEach(d => {
-      const t = d.data() as any;
-      if (t.type === 'sale') {
-        if (t.paymentMethod === 'gpay') gpay += t.finalAmount;
-        else cash += t.finalAmount;
-      }
-    });
-    let expenseTotal = 0;
-    expSnap.docs.forEach(d => {
-      expenseTotal += (d.data() as any).amount;
-    });
+    // Today's summary — same shared math as Bills/Reports/Close Bill
+    const sales = excludeVoided(allTx.filter(t => t.type === 'sale'));
+    const returns = allTx.filter(t => t.type === 'return');
+    const rawTotals = computeCashGpayTotals(sales);
+    const { cash, gpay } = applyReturnsToTotals(rawTotals, sales, returns);
+    const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0);
     setTodaySummary({
       sale: cash + gpay,
       cash,
@@ -88,38 +75,29 @@ const Notifications = ({ route }: any) => {
       hand: cash - expenseTotal,
     });
 
-    // Recent weekly reports
-    const raw = await AsyncStorage.getItem(`${HISTORY_KEY}_${shopId}`);
-    const reports = raw ? JSON.parse(raw) : [];
+    // Recent weekly/monthly reports
+    const reports = historyRaw ? JSON.parse(historyRaw) : [];
     setRecentReports(reports.slice(0, 3));
   }, [shopId]);
 
-  React.useEffect(() => {
-    load().finally(() => setLoading(false));
-  }, [load]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#7A4A2B" />
+        <ActivityIndicator size="large" color={COLORS.textMuted} />
       </View>
     );
   }
 
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      {/* <Text style={styles.title}>Notifications</Text> */}
+      <Text style={styles.title}>Notifications</Text>
 
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.cardTitle}>⚠️ Low Stock ({lowStock.length})</Text>
         {lowStock.length === 0 && (
-          <Text style={styles.empty}>Everything is comfortably stocked.</Text>
+          <EmptyState text="Everything is comfortably stocked." />
         )}
         {lowStock.map((item, i) => (
           <View key={i} style={styles.row}>
@@ -132,48 +110,27 @@ const Notifications = ({ route }: any) => {
             </Text>
           </View>
         ))}
-      </View>
+      </Card>
 
       {todaySummary && (
-        <View style={styles.card}>
+        <Card>
           <Text style={styles.cardTitle}>📋 Today So Far</Text>
-          <View style={styles.row}>
-            <Text style={styles.rowText}>Sale</Text>
-            <Text style={styles.rowValue}>
-              {formatCurrency(todaySummary.sale)}
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowText}>Cash</Text>
-            <Text style={styles.rowValue}>
-              {formatCurrency(todaySummary.cash)}
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowText}>GPay</Text>
-            <Text style={styles.rowValue}>
-              {formatCurrency(todaySummary.gpay)}
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowText}>Expenses</Text>
-            <Text style={styles.rowValue}>
-              {formatCurrency(todaySummary.expenseTotal)}
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={[styles.rowText, styles.bold]}>Hand</Text>
-            <Text style={[styles.rowValue, styles.bold]}>
-              {formatCurrency(todaySummary.hand)}
-            </Text>
-          </View>
-        </View>
+          <StatRow label="Sale" value={todaySummary.sale} tone="income" />
+          <StatRow label="Cash" value={todaySummary.cash} tone="income" />
+          <StatRow label="GPay" value={todaySummary.gpay} tone="income" />
+          <StatRow
+            label="Expenses"
+            value={todaySummary.expenseTotal}
+            tone="expense"
+          />
+          <StatRow label="Hand" value={todaySummary.hand} tone="neutral" bold />
+        </Card>
       )}
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>📄 Recent Weekly Reports</Text>
+      <Card>
+        <Text style={styles.cardTitle}>📄 Recent Reports</Text>
         {recentReports.length === 0 && (
-          <Text style={styles.empty}>No reports generated yet.</Text>
+          <EmptyState text="No reports generated yet." />
         )}
         {recentReports.map((r: any) => (
           <View key={r.id} style={styles.row}>
@@ -183,7 +140,7 @@ const Notifications = ({ route }: any) => {
             </Text>
           </View>
         ))}
-      </View>
+      </Card>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>
@@ -193,37 +150,28 @@ const Notifications = ({ route }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF4EC',
-    padding: 24,
-    // paddingTop: 48,
+    backgroundColor: COLORS.cream,
+    padding: SPACING.xl,
+    paddingTop: SPACING.xl,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FBF4EC',
+    backgroundColor: COLORS.cream,
   },
   title: {
-    fontSize: 22,
+    fontSize: FONT_SIZE.title,
     fontWeight: '700',
-    color: '#2B160C',
+    color: COLORS.cacaoDark,
     marginBottom: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 14,
   },
   cardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#5C3620',
+    color: COLORS.cacao,
     marginBottom: 10,
   },
-  empty: { color: '#7A4A2B', fontSize: 13 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -231,10 +179,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3E6D5',
   },
-  rowText: { fontSize: 13, color: '#2B160C' },
-  rowValue: { fontSize: 13, fontWeight: '600', color: '#5C3620' },
-  rowValueLow: { fontSize: 13, fontWeight: '600', color: '#9C3654' },
-  bold: { fontWeight: '800' },
+  rowText: { fontSize: 13, color: COLORS.cacaoDark },
+  rowValue: { fontSize: 13, fontWeight: '600', color: COLORS.cacao },
+  rowValueLow: { fontSize: 13, fontWeight: '600', color: COLORS.danger },
 });
 
 export default Notifications;
