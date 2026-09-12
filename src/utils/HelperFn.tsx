@@ -66,3 +66,17 @@ export function getQuantityUnitLabel(baseUnit: string): string {
   if (baseUnit === 'ml') return 'ml';
   return 'pcs';
 }
+
+export function formatCurrency(amount: number): string {
+  return `₹${amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+export function formatCurrencyPlain(amount: number): string {
+  return `Rs.${amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}

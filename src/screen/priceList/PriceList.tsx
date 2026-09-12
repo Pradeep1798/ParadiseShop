@@ -13,7 +13,11 @@ import {
   collection,
   getDocs,
 } from '@react-native-firebase/firestore';
-import { getQuantityUnitLabel, computeAmount } from 'utils/HelperFn';
+import {
+  getQuantityUnitLabel,
+  computeAmount,
+  formatCurrency,
+} from 'utils/HelperFn';
 
 const PriceList = ({ route }: any) => {
   const { shopId } = route.params || {};
@@ -89,13 +93,15 @@ const PriceList = ({ route }: any) => {
                         <Text key={amt} style={styles.priceTag}>
                           {amt}
                           {getQuantityUnitLabel(sv.unit)} — ₹
-                          {computeAmount(sv.unit, amt, sv.pricePerKg).toFixed(
-                            0,
+                          {formatCurrency(
+                            computeAmount(sv.unit, amt, sv.pricePerKg),
                           )}
                         </Text>
                       ))
                     ) : (
-                      <Text style={styles.priceTag}>₹{sv.pricePerKg} / kg</Text>
+                      <Text style={styles.priceTag}>
+                        {formatCurrency(sv.pricePerKg)} / kg
+                      </Text>
                     )}
                   </View>
                 </View>

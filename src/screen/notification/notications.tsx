@@ -15,7 +15,7 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getStockUnitLabel } from 'utils/HelperFn';
+import { formatCurrency, getStockUnitLabel } from 'utils/HelperFn';
 
 const HISTORY_KEY = 'weekly_report_history';
 
@@ -143,26 +143,32 @@ const Notifications = ({ route }: any) => {
           <Text style={styles.cardTitle}>📋 Today So Far</Text>
           <View style={styles.row}>
             <Text style={styles.rowText}>Sale</Text>
-            <Text style={styles.rowValue}>₹{todaySummary.sale.toFixed(2)}</Text>
+            <Text style={styles.rowValue}>
+              {formatCurrency(todaySummary.sale)}
+            </Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.rowText}>Cash</Text>
-            <Text style={styles.rowValue}>₹{todaySummary.cash.toFixed(2)}</Text>
+            <Text style={styles.rowValue}>
+              {formatCurrency(todaySummary.cash)}
+            </Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.rowText}>GPay</Text>
-            <Text style={styles.rowValue}>₹{todaySummary.gpay.toFixed(2)}</Text>
+            <Text style={styles.rowValue}>
+              {formatCurrency(todaySummary.gpay)}
+            </Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.rowText}>Expenses</Text>
             <Text style={styles.rowValue}>
-              ₹{todaySummary.expenseTotal.toFixed(2)}
+              {formatCurrency(todaySummary.expenseTotal)}
             </Text>
           </View>
           <View style={styles.row}>
             <Text style={[styles.rowText, styles.bold]}>Hand</Text>
             <Text style={[styles.rowValue, styles.bold]}>
-              ₹{todaySummary.hand.toFixed(2)}
+              {formatCurrency(todaySummary.hand)}
             </Text>
           </View>
         </View>

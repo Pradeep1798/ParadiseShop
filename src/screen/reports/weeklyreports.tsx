@@ -17,7 +17,11 @@ import {
 import { generatePDF } from 'react-native-html-to-pdf';
 import Share from 'react-native-share';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { computeStockDelta, getStockUnitLabel } from 'utils/HelperFn';
+import {
+  computeStockDelta,
+  formatCurrency,
+  getStockUnitLabel,
+} from 'utils/HelperFn';
 import { notifyWeeklyReportReady } from 'utils/notification';
 
 const HISTORY_KEY = 'weekly_report_history';
@@ -244,29 +248,32 @@ const WeeklyReport = ({ route }: any) => {
           <p style="color: #7A4A2B;">${periodLabel}</p>
 
             <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-              <tr><td style="padding: 8px; font-weight: bold;">Total Sale</td><td style="padding: 8px;">₹${(
-                cashTotal + gpayTotal
-              ).toFixed(2)}</td></tr>
-              <tr style="background: #FBF4EC;"><td style="padding: 8px; font-weight: bold;">Cash</td><td style="padding: 8px;">₹${cashTotal.toFixed(
-                2,
+              <tr><td style="padding: 8px; font-weight: bold;">Total Sale</td><td style="padding: 8px;">${formatCurrency(
+                cashTotal + gpayTotal,
+              )}
+              </td></tr>
+              <tr style="background: #FBF4EC;"><td style="padding: 8px; font-weight: bold;">Cash</td><td style="padding: 8px;"> ${formatCurrency(
+                cashTotal,
+              )}
+              </td></tr>
+              <tr><td style="padding: 8px; font-weight: bold;">GPay</td><td style="padding: 8px;">${formatCurrency(
+                gpayTotal,
               )}</td></tr>
-              <tr><td style="padding: 8px; font-weight: bold;">GPay</td><td style="padding: 8px;">₹${gpayTotal.toFixed(
-                2,
-              )}</td></tr>
-              <tr style="background: #FBF4EC;"><td style="padding: 8px; font-weight: bold;">Total Discount Given</td><td style="padding: 8px;">₹${discountTotal.toFixed(
-                2,
-              )}</td></tr>
+              <tr style="background: #FBF4EC;"><td style="padding: 8px; font-weight: bold;">Total Discount Given</td><td style="padding: 8px;">${formatCurrency(
+                discountTotal,
+              )}
+              </td></tr>
             </table>
 
-            <h2 style="color: #5C3620; margin-top: 30px;">Expenses — Total: ₹${expenseTotal.toFixed(
-              2,
+            <h2 style="color: #5C3620; margin-top: 30px;">Expenses — Total: ${formatCurrency(
+              expenseTotal,
             )}</h2>
             <table style="width: 100%; border-collapse: collapse;">
               ${Object.entries(expenseByDesc)
                 .map(
                   ([desc, amt]) =>
-                    `<tr><td style="padding: 6px;">${desc}</td><td style="padding: 6px;">₹${amt.toFixed(
-                      2,
+                    `<tr><td style="padding: 6px;">${desc}</td><td style="padding: 6px;"> ${formatCurrency(
+                      amt,
                     )}</td></tr>`,
                 )
                 .join('')}

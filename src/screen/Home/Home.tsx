@@ -22,6 +22,7 @@ import {
   getStockUnitLabel,
   computeAmount,
   computeStockDelta,
+  formatCurrency,
 } from 'utils/HelperFn';
 import { printReceipt } from 'utils/Printer';
 
@@ -35,7 +36,6 @@ const Home = ({ route, navigation }: any) => {
   const [selectedSub, setSelectedSub] = useState<any>(null);
   const [grams, setGrams] = useState('');
   const [count, setCount] = useState('1');
-
   const [cart, setCart] = useState<any[]>([]);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [billDiscount, setBillDiscount] = useState('0');
@@ -301,28 +301,30 @@ const Home = ({ route, navigation }: any) => {
           note: note.trim() || null,
         });
       }
-try {
-  await printReceipt({
-    shopName,
-    billItems: itemsWithPayment.map((i) => ({
-      name: i.subVarietyName,
-      qty: i.pieceInfo || `${i.quantity}${i.unit}`,
-      amount: i.billAmount,
-    })),
-    discount: discountNum,
-    // excess: excessNum,
-    total: cartTotal,
-    paymentMethod: paymentMode,
-    staffName,
-    timestamp: Date.now(),
-  });
-} catch (e) {
-  console.log('Print skipped or failed:', e);
-}
+      try {
+        await printReceipt({
+          shopName,
+          billItems: itemsWithPayment.map(i => ({
+            name: i.subVarietyName,
+            qty: i.pieceInfo || `${i.quantity}${i.unit}`,
+            amount: i.billAmount,
+          })),
+          discount: discountNum,
+          // excess: excessNum,
+          total: cartTotal,
+          paymentMethod: paymentMode,
+          staffName,
+          timestamp: Date.now(),
+        });
+      } catch (e) {
+        console.log('Print skipped or failed:', e);
+      }
       setCart([]);
       setBillDiscount('0');
       setBillExcess('0');
       setNote('');
+      setSplitCash('0');
+      setSplitGpay('0');
       setShowMoreOptions(false);
       await loadCategories();
     } catch (e) {
@@ -362,7 +364,9 @@ try {
               <View
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
               >
-                <Text style={styles.cartItemAmount}>₹{item.billAmount}</Text>
+                <Text style={styles.cartItemAmount}>
+                  {formatCurrency(item.billAmount)}
+                </Text>
                 <TouchableOpacity onPress={() => removeFromCart(i)}>
                   <Text style={styles.removeText}>✕</Text>
                 </TouchableOpacity>
@@ -372,7 +376,7 @@ try {
           <View style={styles.cartTotalRow}>
             <Text style={styles.cartTotalLabel}>Subtotal</Text>
             <Text style={styles.cartTotalValue}>
-              ₹{cartSubtotal.toFixed(2)}
+              {formatCurrency(cartSubtotal)}
             </Text>
           </View>
 
@@ -415,7 +419,7 @@ try {
               Final total
             </Text>
             <Text style={[styles.cartTotalValue, styles.finalLabel]}>
-              ₹{cartTotal.toFixed(2)}
+              {formatCurrency(cartTotal)}
             </Text>
           </View>
         </View>
@@ -537,8 +541,10 @@ try {
           )}
 
           <Text style={styles.label}>
-            Amount: ₹{billAmount.toFixed(2)}{' '}
-            {countNum > 1 ? `(${countNum} × ₹${perUnitAmount.toFixed(2)})` : ''}
+            Amount: {formatCurrency(billAmount)}{' '}
+            {countNum > 1
+              ? `(${countNum} × ${formatCurrency(perUnitAmount)})`
+              : ''}
           </Text>
 
           <TouchableOpacity style={styles.addBtn} onPress={addToCart}>
@@ -629,8 +635,8 @@ try {
                   splitMismatch ? styles.splitErrorText : styles.splitOkText
                 }
               >
-                {splitCashNum.toFixed(2)} + {splitGpayNum.toFixed(2)} = ₹
-                {splitTotal.toFixed(2)}{' '}
+                {formatCurrency(splitCashNum)} + {formatCurrency(splitGpayNum)}{' '}
+                = {formatCurrency(splitTotal)}
                 {splitMismatch ? `(should be ₹${cartTotal.toFixed(2)})` : '✓'}
               </Text>
             </>
@@ -647,7 +653,7 @@ try {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.buttonText}>
-                Complete sale — ₹{cartTotal.toFixed(2)}
+                Complete sale — {formatCurrency(cartTotal)}
               </Text>
             )}
           </TouchableOpacity>

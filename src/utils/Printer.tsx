@@ -1,5 +1,6 @@
 import { BLEPrinter } from 'react-native-thermal-receipt-printer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { formatCurrencyPlain } from './HelperFn';
 
 const SAVED_PRINTER_KEY = 'saved_printer_mac';
 let initialized = false;
@@ -37,7 +38,7 @@ export async function printReceipt({
   shopName,
   billItems,
   discount,
-//   excess,
+  //   excess,
   total,
   paymentMethod,
   staffName,
@@ -46,7 +47,7 @@ export async function printReceipt({
   shopName: string;
   billItems: { name: string; qty: string; amount: number }[];
   discount: number;
-//   excess: number;
+  //   excess: number;
   total: number;
   paymentMethod: string;
   staffName: string;
@@ -62,14 +63,18 @@ export async function printReceipt({
   receipt += `${new Date(timestamp).toLocaleString('en-IN')}\n`;
   receipt += '--------------------------------\n';
 
-  billItems.forEach((item) => {
-    receipt += padColumns(`${item.name} (${item.qty})`, `Rs.${item.amount.toFixed(2)}`);
+  billItems.forEach(item => {
+    receipt += padColumns(
+      `${item.name} (${item.qty})`,
+      formatCurrencyPlain(item.amount),
+    );
   });
 
   receipt += '--------------------------------\n';
-  if (discount > 0) receipt += padColumns('Discount', `-Rs.${discount.toFixed(2)}`);
-//   if (excess > 0) receipt += padColumns('Excess', `+Rs.${excess.toFixed(2)}`);
-  receipt += padColumns('TOTAL', `Rs.${total.toFixed(2)}`);
+  if (discount > 0)
+    receipt += padColumns('Discount', formatCurrencyPlain(discount));
+  //   if (excess > 0) receipt += padColumns('Excess', `+Rs.${excess.toFixed(2)}`);
+  receipt += padColumns('TOTAL', formatCurrencyPlain(total));
   receipt += `\nPaid via: ${paymentMethod.toUpperCase()}\n`;
   receipt += `Served by: ${staffName}\n`;
   receipt += '\nThank you, visit again!\n\n\n';

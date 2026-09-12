@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet, ScrollView } from 'react-native';
 import { getFirestore, collection, getDocs, query, where, doc, setDoc, getDoc } from '@react-native-firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
+import { formatCurrency } from 'utils/HelperFn';
 
 const CloseBill = ({ route, navigation }: any) => {
   const { shopId, staffName } = route.params || {};
@@ -107,6 +108,34 @@ const CloseBill = ({ route, navigation }: any) => {
     );
   }
 
+  const Row = ({
+    label,
+    value,
+    tone,
+    bold,
+  }: {
+    label: string;
+    value: number;
+    tone: 'income' | 'expense' | 'neutral' | 'warning';
+    bold?: boolean;
+  }) => {
+    const toneColors = {
+      income: '#5C7D57',
+      expense: '#9C3654',
+      neutral: '#5C3620',
+      warning: '#B8871E',
+    };
+    const color = toneColors[tone] || '#2B160C';
+    return (
+      <View style={[styles.row, { borderLeftColor: color }]}>
+        <Text style={[styles.rowLabel, bold && styles.bold]}>{label}</Text>
+        <Text style={[styles.rowValue, { color }, bold && styles.bold]}>
+          {formatCurrency(value)}
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Close Today's Bill</Text>
@@ -123,12 +152,16 @@ const CloseBill = ({ route, navigation }: any) => {
       )}
 
       <View style={styles.card}>
-        <Row label="Sale" value={summary.sale} />
-        <Row label="Cash" value={summary.cash} />
-        <Row label="GPay" value={summary.gpay} />
-        <Row label="Expenses" value={summary.expenseTotal} />
-        <View style={styles.divider} />
-        <Row label="Calculated Hand" value={summary.calculatedHand} bold />
+        <Row label="Sale" value={summary.sale} tone="income" />
+        <Row label="Cash" value={summary.cash} tone="income" />
+        <Row label="GPay" value={summary.gpay} tone="income" />
+        <Row label="Expenses" value={summary.expenseTotal} tone="expense" />
+        <Row
+          label="Calculated Hand"
+          value={summary.calculatedHand}
+          tone="neutral"
+          bold
+        />
       </View>
 
       <Text style={styles.label}>Excess (+) or Shortage (−) amount (₹)</Text>
@@ -178,12 +211,7 @@ const CloseBill = ({ route, navigation }: any) => {
   );
 };
 
-const Row = ({ label, value, bold }: any) => (
-  <View style={styles.row}>
-    <Text style={[styles.rowLabel, bold && styles.bold]}>{label}</Text>
-    <Text style={[styles.rowValue, bold && styles.bold]}>₹{value.toFixed(2)}</Text>
-  </View>
-);
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FBF4EC', padding: 24, paddingTop: 24 },

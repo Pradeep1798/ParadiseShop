@@ -31,6 +31,7 @@ import Catalogue from 'screen/catalogue/Catalogue';
 
 import { SCREENS, TABSCREENS } from './RootStack';
 import { clearDeviceSession } from 'utils/HelperFn';
+import Attendance from 'screen/reports/Attendance';
 
 const Drawer = createDrawerNavigator();
 
@@ -181,11 +182,8 @@ const CustomDrawerContent = (props: any) => {
         >
           {/* Dynamic user information */}
           <View style={styles.userInfo}>
-
-              <Text style={styles.staffName}>
-                {params?.staffName || 'Staff'}
-              </Text>
-            </View>
+            <Text style={styles.staffName}>{params?.staffName || 'Staff'}</Text>
+          </View>
         </ImageBackground>
       </View>
 
@@ -309,6 +307,13 @@ const CustomDrawerContent = (props: any) => {
               label="Catalogue"
               icon="images-outline"
               screen={TABSCREENS.CATALOGUE}
+              navigation={props.navigation}
+              state={props.state}
+            />
+            <DrawerMenuItem
+              label="Attendance"
+              icon="people-outline"
+              screen={TABSCREENS.ATTENDANCE}
               navigation={props.navigation}
               state={props.state}
             />
@@ -513,6 +518,12 @@ const DrawerNav = ({ route }: any) => {
             options={{
               title: 'Catalogue',
             }}
+          />
+
+          <Drawer.Screen
+            name={TABSCREENS.ATTENDANCE}
+            component={withParams(Attendance, params)}
+            options={{ title: 'Attendance' }}
           />
         </>
       )}

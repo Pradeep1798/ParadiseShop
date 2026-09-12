@@ -30,6 +30,7 @@ export type RootBottomScreens = {
   WeekReports: any;
   Catalogue: any;
   CloseBill: any;
+  Attendance: any;
 };
 
 export const TABSCREENS = {
@@ -45,6 +46,7 @@ export const TABSCREENS = {
   WEEKLY_REPORT: 'WeekReports',
   CATALOGUE: 'Catalogue',
   CLOSEBILLS: 'CloseBill',
+  ATTENDANCE: 'Attendance',
 } as const;
 
 export type StackNavigation = NavigationProp<RootStackScreens>;

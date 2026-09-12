@@ -18,6 +18,7 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import ScreenContainer from 'components/ScreenContainer';
+import { formatCurrency } from 'utils/HelperFn';
 
 const Expense = ({ route, navigation }: any) => {
   const { shopId, staffName } = route.params;
@@ -177,13 +178,15 @@ const Expense = ({ route, navigation }: any) => {
                 {e.staffName} · {e.paymentMethod === 'gpay' ? 'GPay' : 'Cash'}
               </Text>
             </View>
-            <Text style={styles.listAmount}>₹{e.amount.toFixed(2)}</Text>
+            <Text style={styles.listAmount}>{formatCurrency(e.amount)}</Text>
           </View>
         ))}
         {todaysExpenses.length > 0 && (
           <View style={styles.listTotalRow}>
             <Text style={styles.listTotalLabel}>Total</Text>
-            <Text style={styles.listTotalValue}>₹{todaysTotal.toFixed(2)}</Text>
+            <Text style={styles.listTotalValue}>
+              {formatCurrency(todaysTotal)}
+            </Text>
           </View>
         )}
       </View>

@@ -20,6 +20,7 @@ import {
   query,
   where,
 } from '@react-native-firebase/firestore';
+import { formatCurrency } from 'utils/HelperFn';
 
 const Bills = ({ route }: any) => {
   const { shopId, staffName } = route.params;
@@ -199,56 +200,54 @@ const Bills = ({ route }: any) => {
       minute: '2-digit',
     });
 
-const updateBillPayment = async (bill: any, newMethod: 'cash' | 'gpay') => {
-  setPaymentSaving(true);
-  try {
-    const db = getFirestore();
-    await Promise.all(
-      bill.items.map((item: any) =>
-        updateDoc(doc(db, 'shops', shopId, 'transactions', item.id), {
-          paymentMethod: newMethod,
-          cashPortion: newMethod === 'cash' ? item.finalAmount : 0,
-          gpayPortion: newMethod === 'gpay' ? item.finalAmount : 0,
-        }),
-      ),
+  const updateBillPayment = async (bill: any, newMethod: 'cash' | 'gpay') => {
+    setPaymentSaving(true);
+    try {
+      const db = getFirestore();
+      await Promise.all(
+        bill.items.map((item: any) =>
+          updateDoc(doc(db, 'shops', shopId, 'transactions', item.id), {
+            paymentMethod: newMethod,
+            cashPortion: newMethod === 'cash' ? item.finalAmount : 0,
+            gpayPortion: newMethod === 'gpay' ? item.finalAmount : 0,
+          }),
+        ),
+      );
+      setEditingPayment(null);
+      await loadData();
+    } catch (e) {
+      console.log('Could not update payment method');
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
+
+  const searchLower = search.trim().toLowerCase();
+  const filteredBills = bills.filter(bill => {
+    if (staffFilter && bill.staffName !== staffFilter) return false;
+    if (paymentFilter && bill.paymentMethod !== paymentFilter) return false;
+    return true;
+  });
+
+  const activeFilterCount = (staffFilter ? 1 : 0) + (paymentFilter ? 1 : 0);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#7A4A2B" />
+      </View>
     );
-    setEditingPayment(null);
-    await loadData();
-  } catch (e) {
-    console.log('Could not update payment method');
-  } finally {
-    setPaymentSaving(false);
   }
-};
 
-const searchLower = search.trim().toLowerCase();
-const filteredBills = bills.filter(bill => {
-  if (staffFilter && bill.staffName !== staffFilter) return false;
-  if (paymentFilter && bill.paymentMethod !== paymentFilter) return false;
-  return true;
-});
-
-const activeFilterCount = (staffFilter ? 1 : 0) + (paymentFilter ? 1 : 0);
-
-const todaysTotal = bills.reduce((sum, b) => sum + b.total, 0);
-
-if (loading) {
-  return (
-    <View style={styles.center}>
-      <ActivityIndicator size="large" color="#7A4A2B" />
-    </View>
-  );
-}
-
-console.log('render, returningItem is:', returningItem);
-const openReturn = (item: any) => {
-  setReturningItem(item);
-  setReturnQty(String(item.quantity - item.returnedQty));
-  setRefundPayment(
-    item.paymentMethod === 'split' ? 'cash' : item.paymentMethod,
-  );
-  setReturnError('');
-};
+  console.log('render, returningItem is:', returningItem);
+  const openReturn = (item: any) => {
+    setReturningItem(item);
+    setReturnQty(String(item.quantity - item.returnedQty));
+    setRefundPayment(
+      item.paymentMethod === 'split' ? 'cash' : item.paymentMethod,
+    );
+    setReturnError('');
+  };
 
   return (
     <>
@@ -286,8 +285,9 @@ const openReturn = (item: any) => {
         </View>
         <View style={styles.filterRow}>
           <Text style={styles.subtitle}>
-            {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''} ·
-            ₹{filteredBills.reduce((s, b) => s + b.total, 0).toFixed(2)} total
+            {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''} ·{' '}
+            {formatCurrency(filteredBills.reduce((s, b) => s + b.total, 0))}{' '}
+            total
           </Text>
           <TouchableOpacity
             style={styles.filterIconBtn}
@@ -428,7 +428,7 @@ const openReturn = (item: any) => {
                       : ''}
                   </Text>
                   <Text style={styles.itemAmount}>
-                    ₹{(item.billAmount ?? item.finalAmount).toFixed(2)}
+                    {formatCurrency(item.billAmount ?? item.finalAmount)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -439,7 +439,7 @@ const openReturn = (item: any) => {
                     Discount
                   </Text>
                   <Text style={[styles.itemAmount, styles.discountText]}>
-                    -₹{billDiscountTotal.toFixed(2)}
+                    -{formatCurrency(billDiscountTotal)}
                   </Text>
                 </View>
               )}
@@ -450,7 +450,7 @@ const openReturn = (item: any) => {
                     Excess
                   </Text>
                   <Text style={[styles.itemAmount, styles.excessText]}>
-                    +₹{billExcessTotal.toFixed(2)}
+                    +{formatCurrency(billExcessTotal)}
                   </Text>
                 </View>
               )}
@@ -518,7 +518,7 @@ const openReturn = (item: any) => {
                     {bill.staffName} · {formatTime(bill.timestamp)}
                   </Text>
                 </View>
-                <Text style={styles.amount}>₹{bill.total.toFixed(2)}</Text>
+                <Text style={styles.amount}>{formatCurrency(bill.total)}</Text>
               </View>
             </View>
           );
