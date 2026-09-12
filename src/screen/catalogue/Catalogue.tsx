@@ -17,6 +17,7 @@ import {
   updateDoc,
   setDoc,
 } from '@react-native-firebase/firestore';
+import ScreenContainer from 'components/ScreenContainer';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -115,12 +116,7 @@ const Catalogue = ({ route }: any) => {
 
   return (
     <>
-      <ScrollView
-        style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+      <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Catalogue</Text>
           <TouchableOpacity
@@ -178,7 +174,7 @@ const Catalogue = ({ route }: any) => {
         })}
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </ScreenContainer>
 
       {!!editingItem && (
         <ItemEditor

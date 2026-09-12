@@ -13,6 +13,8 @@ module.exports = {
           screen: './src/screen',
           components: './src/components',
           assests: './src/assests',
+          theme: './src/theme',
+          services: './src/services',
         },
       },
     ],

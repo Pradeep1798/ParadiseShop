@@ -68,7 +68,7 @@ export function getQuantityUnitLabel(baseUnit: string): string {
 }
 
 export function formatCurrency(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN', {
+  return `₹ ${amount.toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;

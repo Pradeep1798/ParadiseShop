@@ -311,7 +311,7 @@ const CustomDrawerContent = (props: any) => {
               state={props.state}
             />
             <DrawerMenuItem
-              label="Attendance"
+              label="Leave List"
               icon="people-outline"
               screen={TABSCREENS.ATTENDANCE}
               navigation={props.navigation}
@@ -523,7 +523,7 @@ const DrawerNav = ({ route }: any) => {
           <Drawer.Screen
             name={TABSCREENS.ATTENDANCE}
             component={withParams(Attendance, params)}
-            options={{ title: 'Attendance' }}
+            options={{ title: 'Leave List' }}
           />
         </>
       )}

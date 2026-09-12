@@ -18,6 +18,7 @@ import {
   computeAmount,
   formatCurrency,
 } from 'utils/HelperFn';
+import ScreenContainer from 'components/ScreenContainer';
 
 const PriceList = ({ route }: any) => {
   const { shopId } = route.params || {};
@@ -59,12 +60,7 @@ const PriceList = ({ route }: any) => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
       {/* <Text style={styles.title}>Price List</Text> */}
 
       {categories.length === 0 && (
@@ -111,7 +107,7 @@ const PriceList = ({ route }: any) => {
       })}
 
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </ScreenContainer>
   );
 };
 
@@ -142,6 +138,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     overflow: 'hidden',
+    shadowColor: '#5C3620',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   categoryHeader: {
     flexDirection: 'row',

@@ -21,6 +21,7 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { formatCurrency } from 'utils/HelperFn';
+import ScreenContainer from 'components/ScreenContainer';
 
 const Bills = ({ route }: any) => {
   const { shopId, staffName } = route.params;
@@ -251,12 +252,7 @@ const Bills = ({ route }: any) => {
 
   return (
     <>
-      <ScrollView
-        style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+      <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
         {/* <Text style={styles.title}>Today's Bills</Text> */}
         <View style={styles.dateNav}>
           <TouchableOpacity
@@ -486,14 +482,7 @@ const Bills = ({ route }: any) => {
                     <TouchableOpacity
                       onPress={() => setEditingPayment(bill.billId)}
                     >
-                      <View
-                        style={[
-                          styles.badge,
-                          bill.paymentMethod === 'gpay'
-                            ? styles.badgeGpay
-                            : styles.badgeCash,
-                        ]}
-                      >
+                      <View style={styles.paymentBadgeContent}>
                         <Text
                           style={[
                             styles.badgeText,
@@ -509,8 +498,9 @@ const Bills = ({ route }: any) => {
                             : bill.paymentMethod === 'gpay'
                             ? 'GPay'
                             : 'Cash'}
-                          ✎
                         </Text>
+
+                        <Text style={styles.editIcon}>✎</Text>
                       </View>
                     </TouchableOpacity>
                   )}
@@ -525,7 +515,7 @@ const Bills = ({ route }: any) => {
         })}
 
         <View style={{ height: 40 }} />
-      </ScrollView>
+      </ScreenContainer>
       {!!returningItem && (
         <View style={styles.overlayContainer} pointerEvents="box-none">
           <View style={styles.modalBackdrop}>
@@ -636,60 +626,172 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 1, marginBottom: 20 },
   empty: { color: '#7A4A2B', textAlign: 'center', marginTop: 40 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: '#E8D8C7',
+    borderRadius: 15,
+    padding: 15,
     marginBottom: 12,
+    shadowColor: '#5C3620',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   dateNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  dateNavBtn: { padding: 6 },
-  dateNavArrow: { fontSize: 24, color: '#C17A3D', fontWeight: '700' },
-  dateNavArrowDisabled: { color: '#E2CFAF' },
+
+  dateNavBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+
+    backgroundColor: '#FFFFFF',
+
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  dateNavArrow: {
+    fontSize: 25,
+    lineHeight: 28,
+    color: '#C17A3D',
+    fontWeight: '600',
+  },
+
   dateNavLabel: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#2B160C',
-    minWidth: 140,
+
+    minWidth: 150,
     textAlign: 'center',
   },
+
+  dateNavArrowDisabled: { color: '#E2CFAF' },
+
   itemRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+
     borderBottomWidth: 1,
-    borderBottomColor: '#F3E6D5',
+    borderBottomColor: '#F3E8DD',
   },
-  itemText: { fontSize: 13, color: '#2B160C', flex: 1, paddingRight: 8 },
-  itemAmount: { fontSize: 13, fontWeight: '600', color: '#2B160C' },
+
+  itemText: {
+    flex: 1,
+    paddingRight: 12,
+
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2B160C',
+    lineHeight: 19,
+  },
+
+  itemAmount: {
+    minWidth: 75,
+    textAlign: 'right',
+
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#5C3620',
+  },
+
+  badge: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 7,
+
+    minWidth: 52,
+    alignItems: 'center',
+  },
+
+  badgeCash: {
+    backgroundColor: '#E8F0E5',
+  },
+
+  badgeGpay: {
+    backgroundColor: '#E5EEF8',
+  },
+
+  badgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+
+  badgeTextCash: {
+    color: '#52734E',
+  },
+
+  badgeTextGpay: {
+    color: '#3A6EA5',
+  },
+
+  badgeTextSplit: {
+    color: '#C21858',
+  },
+  paymentBadgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+
+  editIcon: {
+    fontSize: 11,
+    color: '#8B6B56',
+  },
   footerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'space-between',
+
+    marginTop: 12,
+    paddingTop: 12,
+
+    borderTopWidth: 1,
+    borderTopColor: '#E8D8C7',
   },
+
   leftGroup: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+
     gap: 8,
-    flexShrink: 1,
+
+    marginRight: 10,
   },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  badgeCash: { backgroundColor: '#E1EADD' },
-  badgeGpay: { backgroundColor: '#DCE8F5' },
-  badgeText: { fontSize: 10.5, fontWeight: '700' },
-  badgeTextCash: { color: '#5C7D57' },
-  badgeTextGpay: { color: '#3A6EA5' },
-  badgeTextSplit: { color: '#C21858' },
-  staffName: { fontSize: 12, color: '#9C8768', fontWeight: '500' },
-  amount: { fontSize: 15, fontWeight: '700', color: '#5C3620' },
+
+  staffName: {
+    flexShrink: 1,
+
+    fontSize: 11,
+    color: '#9A806C',
+    fontWeight: '500',
+  },
+
+  amount: {
+    minWidth: 90,
+    textAlign: 'right',
+
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#C17A3D',
+  },
   search: {
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -751,7 +853,6 @@ const styles = StyleSheet.create({
   pillActive: { backgroundColor: '#5C3620', borderColor: '#5C3620' },
   pillText: { color: '#2B160C', fontWeight: '500' },
   pillTextActive: { color: '#fff', fontWeight: '600' },
-  excessText: { color: '#5C7D57', fontStyle: 'italic' },
   input: {
     backgroundColor: '#FBF4EC',
     borderWidth: 1,
@@ -787,13 +888,29 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: 'center',
   },
-  discountText: { color: '#9C3654', fontStyle: 'italic' },
+  discountText: {
+    color: '#A33D5B',
+    fontWeight: '600',
+  },
+
+  excessText: {
+    color: '#5C7D57',
+    fontWeight: '600',
+  },
   noteText: {
-    fontSize: 12,
-    color: '#7A4A2B',
+    fontSize: 11.5,
+    color: '#806452',
     fontStyle: 'italic',
-    marginTop: 4,
-    marginBottom: 4,
+
+    backgroundColor: '#FCF7F2',
+
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+
+    borderRadius: 8,
+
+    marginTop: 7,
+    marginBottom: 5,
   },
   paymentBtnActive: { backgroundColor: '#9C3654', borderColor: '#9C3654' },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

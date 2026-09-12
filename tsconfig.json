@@ -10,12 +10,14 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": "src",
     "paths": {
-  "roots/*":["roots/*"],
-  "screen/*": ["screen/*"],
-  "utils/*":["utils/*"],
-  "components/*":["components/*"],
-  "assests/*":["assests/*"]
-}
+      "roots/*": ["roots/*"],
+      "screen/*": ["screen/*"],
+      "utils/*": ["utils/*"],
+      "components/*": ["components/*"],
+      "assests/*": ["assests/*"],
+      "theme/*": ["theme/*"],
+      "services/*": ["services/*"]
+    }
   },
   "extends": "@react-native/typescript-config/tsconfig.json"
 }

@@ -15,6 +15,7 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { formatCurrency } from 'utils/HelperFn';
+import ScreenContainer from 'components/ScreenContainer';
 
 const DailyReports = ({ route }: any) => {
   const { shopId } = route.params;
@@ -231,12 +232,7 @@ const DailyReports = ({ route }: any) => {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
       {rows.length === 0 && (
         <Text style={styles.empty}>No sales or expenses recorded yet.</Text>
       )}
@@ -277,7 +273,7 @@ const DailyReports = ({ route }: any) => {
       ))}
 
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </ScreenContainer>
   );
 };
 
@@ -302,12 +298,20 @@ const styles = StyleSheet.create({
   },
   empty: { color: '#7A4A2B', textAlign: 'center', marginTop: 40 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 14,
+    borderColor: '#E8D8C7',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 12,
+    shadowColor: '#5C3620',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   date: { fontSize: 15, fontWeight: '700', color: '#2B160C', marginBottom: 10 },
   closingNoteText: {

@@ -16,6 +16,7 @@ import {
 } from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatCurrency, getStockUnitLabel } from 'utils/HelperFn';
+import ScreenContainer from 'components/ScreenContainer';
 
 const HISTORY_KEY = 'weekly_report_history';
 
@@ -112,12 +113,7 @@ const Notifications = ({ route }: any) => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
       {/* <Text style={styles.title}>Notifications</Text> */}
 
       <View style={styles.card}>
@@ -190,7 +186,7 @@ const Notifications = ({ route }: any) => {
       </View>
 
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </ScreenContainer>
   );
 };
 
