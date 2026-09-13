@@ -13,17 +13,24 @@ interface Props {
   refreshing?: boolean;
   onRefresh?: () => void;
   style?: ViewStyle;
+  contentContainerStyle?: ViewStyle; // add this
 }
 
-const ScreenContainer = ({ children, refreshing, onRefresh, style }: Props) => {
+const ScreenContainer = ({
+  children,
+  refreshing,
+  onRefresh,
+  style,
+  contentContainerStyle,
+}: Props) => {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <ScrollView
         style={[styles.container, style]}
+        contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           onRefresh ? (
@@ -32,12 +39,10 @@ const ScreenContainer = ({ children, refreshing, onRefresh, style }: Props) => {
         }
       >
         {children}
-        <React.Fragment key="bottom-spacer" />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: {

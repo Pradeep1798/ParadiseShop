@@ -6,6 +6,7 @@ import {
   TextInput,
   ActivityIndicator,
   StyleSheet,
+  ScrollView,
 } from 'react-native';
 import { splitProportionally } from 'utils/SalesCalculation';
 import {
@@ -25,13 +26,12 @@ import {
 } from 'services/Service';
 import PillGroup from 'components/PillGroup';
 import { COLORS } from 'theme/Theme';
-import SectionLabel from 'components/SectionLabel';
 import CartSummary from './Cart';
+import { homeStyles } from './styles';
 
 const Home = ({ route }: any) => {
   const { shopId, shopName, staffName } = route.params || {};
   const [categories, setCategories] = useState<any[]>([]);
-
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [selectedSub, setSelectedSub] = useState<any>(null);
   const [grams, setGrams] = useState('');
@@ -39,7 +39,7 @@ const Home = ({ route }: any) => {
   const [cart, setCart] = useState<any[]>([]);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [billDiscount, setBillDiscount] = useState('0');
-  const [billExcess, setBillExcess] = useState('0');
+  const [amountOverride, setAmountOverride] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -74,24 +74,30 @@ const Home = ({ route }: any) => {
           selectedSub.pricePerKg,
         )
       : 0;
-  const countNum = selectedSub?.unit === 'pcs' ? 1 : parseInt(count) || 1;
-  const billAmount = perUnitAmount * countNum;
 
+  const countNum = selectedSub?.unit === 'pcs' ? 1 : parseInt(count) || 1;
+
+  const billAmount = perUnitAmount * countNum;
   const selectItem = (cat: any, sv: any, presetGrams?: number) => {
     setSelectedCategory(cat);
     setSelectedSub(sv);
     setGrams(presetGrams ? String(presetGrams) : '');
     setCount('1');
+    setAmountOverride(null); // reset to calculated value for the new item
+    setError('');
   };
 
   const addToCart = () => {
     const gramsNum = parseFloat(grams);
+
     if (!selectedCategory || !selectedSub || !gramsNum || gramsNum <= 0) {
       setError('Pick an item and enter a valid quantity');
       return;
     }
+
     const totalQty = gramsNum * countNum;
     const kgNeeded = computeStockDelta(selectedSub.unit, totalQty);
+
     const alreadyInCart = cart
       .filter(
         c =>
@@ -99,6 +105,7 @@ const Home = ({ route }: any) => {
           c.categoryId === selectedCategory.id,
       )
       .reduce((sum, c) => sum + computeStockDelta(c.unit, c.quantity), 0);
+
     if (kgNeeded + alreadyInCart > selectedSub.stock) {
       setError(
         `Only ${(selectedSub.stock - alreadyInCart).toFixed(
@@ -123,13 +130,14 @@ const Home = ({ route }: any) => {
                 selectedSub.unit,
               )}`
             : null,
-        billAmount: Number(billAmount.toFixed(2)),
+        billAmount: Number(finalItemAmount.toFixed(2)), // ← uses override if present
       },
     ]);
     setSelectedCategory(null);
     setSelectedSub(null);
     setGrams('');
     setCount('1');
+    setAmountOverride(null);
     setError('');
   };
 
@@ -137,49 +145,58 @@ const Home = ({ route }: any) => {
     setCart(prev => prev.filter((_, i) => i !== index));
 
   const cartSubtotal = cart.reduce((sum, item) => sum + item.billAmount, 0);
+
   const discountNum = parseFloat(billDiscount) || 0;
-  const excessNum = parseFloat(billExcess) || 0;
-  const cartTotal = Math.max(0, cartSubtotal - discountNum + excessNum);
+
+  const cartTotal = Math.max(0, cartSubtotal - discountNum);
+
   const splitCashNum = parseFloat(splitCash) || 0;
   const splitGpayNum = parseFloat(splitGpay) || 0;
   const splitTotal = splitCashNum + splitGpayNum;
+
   const splitMismatch =
     paymentMode === 'split' && Math.abs(splitTotal - cartTotal) > 0.01;
+
+  const finalItemAmount =
+    amountOverride !== null ? parseFloat(amountOverride) || 0 : billAmount;
 
   const submitBill = async () => {
     if (cart.length === 0) {
       setError('Add at least one item before completing the sale');
       return;
     }
+
     if (splitMismatch) {
       setError('Cash + GPay must equal the final total');
       return;
     }
+
     setSaving(true);
     setError('');
+
     try {
       const billId = `${Date.now()}_${staffName}`;
+
       const weights = cart.map(i => i.billAmount);
 
-      const discounts = splitProportionally(weights, discountNum);
-      const excesses = splitProportionally(weights, excessNum);
-
+      const discounts = splitProportionally(
+        cart.map(i => i.billAmount),
+        discountNum,
+      );
       const itemsWithFinal = cart.map((item, i) => ({
         ...item,
         discount: discounts[i],
-        excess: excesses[i],
-        finalAmount: Number(
-          (item.billAmount - discounts[i] + excesses[i]).toFixed(2),
-        ),
+        finalAmount: Number((item.billAmount - discounts[i]).toFixed(2)),
       }));
-
       const finalTotal = itemsWithFinal.reduce((s, i) => s + i.finalAmount, 0);
+
       const cashAmount =
         paymentMode === 'cash'
           ? finalTotal
           : paymentMode === 'gpay'
           ? 0
           : splitCashNum;
+
       const cashPortions = splitProportionally(
         itemsWithFinal.map(i => i.finalAmount),
         cashAmount,
@@ -192,14 +209,20 @@ const Home = ({ route }: any) => {
       }));
 
       const byCategory: Record<string, any[]> = {};
+
       itemsWithPayment.forEach(item => {
-        if (!byCategory[item.categoryId]) byCategory[item.categoryId] = [];
+        if (!byCategory[item.categoryId]) {
+          byCategory[item.categoryId] = [];
+        }
+
         byCategory[item.categoryId].push(item);
       });
 
       for (const categoryId of Object.keys(byCategory)) {
         const category = categories.find(c => c.id === categoryId);
+
         const itemsForThisCategory = byCategory[categoryId];
+
         const updatedSubVarieties = category.subVarieties.map((sv: any) => {
           const deductions = itemsForThisCategory
             .filter(i => i.subVarietyId === sv.id)
@@ -207,8 +230,15 @@ const Home = ({ route }: any) => {
               (sum, i) => sum + computeStockDelta(sv.unit, i.quantity),
               0,
             );
-          return deductions > 0 ? { ...sv, stock: sv.stock - deductions } : sv;
+
+          return deductions > 0
+            ? {
+                ...sv,
+                stock: sv.stock - deductions,
+              }
+            : sv;
         });
+
         await updateCategoryStock(shopId, categoryId, updatedSubVarieties);
       }
 
@@ -227,7 +257,6 @@ const Home = ({ route }: any) => {
           unit: item.unit,
           billAmount: item.billAmount,
           discount: item.discount,
-          excess: item.excess,
           finalAmount: item.finalAmount,
           cashPortion: item.cashPortion,
           gpayPortion: item.gpayPortion,
@@ -256,11 +285,11 @@ const Home = ({ route }: any) => {
 
       setCart([]);
       setBillDiscount('0');
-      setBillExcess('0');
       setNote('');
       setSplitCash('0');
       setSplitGpay('0');
       setShowMoreOptions(false);
+
       await load();
     } catch (e) {
       setError('Something went wrong, try again');
@@ -271,273 +300,535 @@ const Home = ({ route }: any) => {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={homeStyles.center}>
         <ActivityIndicator size="large" color={COLORS.textMuted} />
       </View>
     );
   }
 
+  const subItems = selectedCategory?.subVarieties || [];
+
   return (
-    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      {cart.length > 0 && (
-        <CartSummary
-          cart={cart}
-          subtotal={cartSubtotal}
-          total={cartTotal}
-          showMoreOptions={showMoreOptions}
-          onToggleOptions={() => setShowMoreOptions(prev => !prev)}
-          discount={billDiscount}
-          excess={billExcess}
-          note={note}
-          onDiscountChange={setBillDiscount}
-          onExcessChange={setBillExcess}
-          onNoteChange={setNote}
-          onRemove={removeFromCart}
-        />
-      )}
+   <ScreenContainer refreshing={refreshing} onRefresh={onRefresh} contentContainerStyle={homeStyles.container}>
+        {/* CART */}
+        {cart.length > 0 && (
+          <View style={homeStyles.cartWrapper}>
+            <CartSummary
+              cart={cart}
+              subtotal={cartSubtotal}
+              total={cartTotal}
+              showMoreOptions={showMoreOptions}
+              onToggleOptions={() => setShowMoreOptions(prev => !prev)}
+              discount={billDiscount}
+              note={note}
+              onDiscountChange={setBillDiscount}
+              onNoteChange={setNote}
+              onRemove={removeFromCart}
+            />
+          </View>
+        )}
 
-      <SectionLabel>Quick Sell</SectionLabel>
-      <View style={styles.wrapRow}>
-        {quickItems.map(sv => (
-          <TouchableOpacity
-            key={sv.id}
-            style={styles.quickBtn}
-            onPress={() =>
-              selectItem(
-                { id: sv.categoryId, name: sv.categoryName },
-                sv,
-                sv.presetAmounts[0],
-              )
-            }
+        {/* QUICK SELL */}
+        <View style={homeStyles.sectionHeader}>
+          <View>
+            <Text style={homeStyles.sectionTitle}>Quick Sell</Text>
+            <Text style={homeStyles.sectionSubtitle}>
+              Frequently sold items
+            </Text>
+          </View>
+        </View>
+
+        {quickItems.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={homeStyles.quickScroll}
           >
-            <Text style={styles.quickBtnText}>{sv.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <SectionLabel>Category</SectionLabel>
-      <PillGroup
-        options={categories.map(cat => ({
-          key: cat.id,
-          label: cat.name,
-        }))}
-        selectedKey={selectedCategory?.id ?? null}
-        onSelect={key => {
-          const category = categories.find(cat => cat.id === key);
-
-          setSelectedCategory(category);
-          setSelectedSub(null);
-        }}
-      />
-
-      {selectedCategory && (
-        <>
-          <SectionLabel>Item</SectionLabel>
-
-          <PillGroup
-            options={(selectedCategory.subVarieties || []).map((sv: any) => ({
-              key: sv.id,
-              label: `${sv.name} (${sv.stock.toFixed(2)}${getStockUnitLabel(
-                sv.unit,
-              )})`,
-            }))}
-            selectedKey={selectedSub?.id ?? null}
-            onSelect={key => {
-              const subVariety = selectedCategory.subVarieties?.find(
-                (sv: any) => sv.id === key,
-              );
-
-              if (subVariety) {
-                selectItem(selectedCategory, subVariety);
-              }
-            }}
-          />
-        </>
-      )}
-
-      {selectedSub && (
-        <>
-          <SectionLabel>
-            Quantity ({getQuantityUnitLabel(selectedSub.unit)})
-          </SectionLabel>
-          <View style={styles.wrapRow}>
-            {(selectedSub.presetAmounts || []).map((g: number) => (
+            {quickItems.map(sv => (
               <TouchableOpacity
-                key={g}
-                style={styles.presetBtn}
-                onPress={() => setGrams(String(g))}
+                key={sv.id}
+                style={homeStyles.quickCard}
+                onPress={() =>
+                  selectItem(
+                    {
+                      id: sv.categoryId,
+                      name: sv.categoryName,
+                    },
+                    sv,
+                    sv.presetAmounts?.[0],
+                  )
+                }
+                activeOpacity={0.8}
               >
-                <Text style={styles.presetText}>
-                  {g}
-                  {getQuantityUnitLabel(selectedSub.unit)}
+                <View style={homeStyles.quickIcon}>
+                  <Text style={homeStyles.quickIconText}>+</Text>
+                </View>
+
+                <Text style={homeStyles.quickName} numberOfLines={1}>
+                  {sv.name}
+                </Text>
+
+                <Text style={homeStyles.quickPrice}>
+                  {formatCurrency(sv.pricePerKg)}
+                  /kg
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
-          <TextInput
-            style={styles.input}
-            value={grams}
-            onChangeText={setGrams}
-            keyboardType="decimal-pad"
-            placeholder="or custom amount"
-          />
+          </ScrollView>
+        )}
 
-          {selectedSub.unit !== 'pcs' && (
-            <>
-              <SectionLabel>How many?</SectionLabel>
-              <TextInput
-                style={styles.input}
-                value={count}
-                onChangeText={setCount}
-                keyboardType="number-pad"
-                placeholder="1"
-              />
-            </>
-          )}
+        {/* CATEGORY */}
+        <View style={homeStyles.section}>
+          <Text style={homeStyles.sectionTitle}>Category</Text>
 
-          <SectionLabel>
-            Amount: {formatCurrency(billAmount)}{' '}
-            {countNum > 1
-              ? `(${countNum} × ${formatCurrency(perUnitAmount)})`
-              : ''}
-          </SectionLabel>
-
-          <TouchableOpacity style={styles.addBtn} onPress={addToCart}>
-            <Text style={styles.addBtnText}>+ Add to bill</Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      {cart.length > 0 && (
-        <>
-          <SectionLabel>Payment method</SectionLabel>
           <PillGroup
-            options={[
-              { key: 'cash', label: 'Cash' },
-              { key: 'gpay', label: 'GPay' },
-              { key: 'split', label: 'Split' },
-            ]}
-            selectedKey={paymentMode}
-            equalWidth
+            options={categories.map(cat => ({
+              key: cat.id,
+              label: cat.name,
+            }))}
+            selectedKey={selectedCategory?.id ?? null}
             onSelect={key => {
-              const mode = key as 'cash' | 'gpay' | 'split';
+              const category = categories.find(cat => cat.id === key);
 
-              setPaymentMode(mode);
-
-              if (mode === 'split') {
-                setSplitCash(cartTotal.toFixed(2));
-                setSplitGpay('0');
-              }
+              setSelectedCategory(category);
+              setSelectedSub(null);
+              setGrams('');
+              setCount('1');
+              setError('');
             }}
           />
+        </View>
 
-          {paymentMode === 'split' && (
-            <>
-              <SectionLabel>Cash amount (₹)</SectionLabel>
-              <TextInput
-                style={styles.input}
-                value={splitCash}
-                onChangeText={setSplitCash}
-                keyboardType="decimal-pad"
-              />
-              <SectionLabel>GPay amount (₹)</SectionLabel>
-              <TextInput
-                style={styles.input}
-                value={splitGpay}
-                onChangeText={setSplitGpay}
-                keyboardType="decimal-pad"
-              />
-              <Text
-                style={
-                  splitMismatch ? styles.splitErrorText : styles.splitOkText
-                }
-              >
-                {formatCurrency(splitCashNum)} + {formatCurrency(splitGpayNum)}{' '}
-                = {formatCurrency(splitTotal)}{' '}
-                {splitMismatch
-                  ? `(should be ${formatCurrency(cartTotal)})`
-                  : '✓'}
-              </Text>
-            </>
-          )}
+        {/* ITEMS */}
+        {selectedCategory && (
+          <View style={homeStyles.section}>
+            <View style={homeStyles.itemHeader}>
+              <View>
+                <Text style={homeStyles.sectionTitle}>Items</Text>
 
-          {!!error && <Text style={styles.error}>{error}</Text>}
+                <Text style={homeStyles.sectionSubtitle}>
+                  Select an item to sell
+                </Text>
+              </View>
 
-          <TouchableOpacity
-            style={styles.button}
-            onPress={submitBill}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color={COLORS.white} />
+              <View style={homeStyles.itemCountBadge}>
+                <Text style={homeStyles.itemCountText}>{subItems.length}</Text>
+              </View>
+            </View>
+
+            {subItems.length > 0 ? (
+              <View style={homeStyles.itemGrid}>
+                {subItems.map((sv: any, index: number) => {
+                  const active = selectedSub?.id === sv.id;
+
+                  const stock = Number(sv.stock || 0);
+
+                  const stockUnit = getStockUnitLabel(sv.unit);
+
+                  return (
+                    <TouchableOpacity
+                      key={sv.id || index}
+                      style={[
+                        homeStyles.itemCard,
+                        active && homeStyles.itemCardActive,
+                      ]}
+                      onPress={() => selectItem(selectedCategory, sv)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={homeStyles.itemTop}>
+                        <View style={homeStyles.itemInfo}>
+                          <Text
+                            style={[
+                              homeStyles.itemName,
+                              active && homeStyles.itemNameActive,
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {sv.name}
+                          </Text>
+
+                          <Text
+                            style={[
+                              homeStyles.itemPrice,
+                              active && homeStyles.itemPriceActive,
+                            ]}
+                          >
+                            {formatCurrency(sv.pricePerKg)}
+                            /kg
+                          </Text>
+                        </View>
+
+                        <View
+                          style={[
+                            homeStyles.checkCircle,
+                            active && homeStyles.checkCircleActive,
+                          ]}
+                        >
+                          {active && (
+                            <Text style={homeStyles.checkText}>✓</Text>
+                          )}
+                        </View>
+                      </View>
+
+                      <View style={homeStyles.stockRow}>
+                        <Text
+                          style={[
+                            homeStyles.stockLabel,
+                            active && homeStyles.stockLabelActive,
+                          ]}
+                        >
+                          Stock
+                        </Text>
+
+                        <Text
+                          style={[
+                            homeStyles.stockValue,
+                            active && homeStyles.stockValueActive,
+                          ]}
+                        >
+                          {stock.toFixed(2)} {stockUnit}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             ) : (
-              <Text style={styles.buttonText}>
-                Complete sale — {formatCurrency(cartTotal)}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </>
-      )}
+              <View style={homeStyles.emptyBox}>
+                <Text style={homeStyles.emptyTitle}>No items available</Text>
 
-      {cart.length === 0 && !!error && (
-        <Text style={styles.error}>{error}</Text>
-      )}
-      <View style={{ height: 40 }} />
+                <Text style={homeStyles.emptyText}>
+                  This category has no items.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* QUANTITY */}
+        {selectedSub && (
+          <View style={homeStyles.sellPanel}>
+            <View style={homeStyles.sellPanelHeader}>
+              <View>
+                <Text style={homeStyles.sellPanelTitle}>
+                  {selectedSub.name}
+                </Text>
+
+                <Text style={homeStyles.sellPanelSubtitle}>
+                  Enter quantity to sell
+                </Text>
+              </View>
+
+              <View style={homeStyles.sellStockBadge}>
+                <Text style={homeStyles.sellStockText}>
+                  {Number(selectedSub.stock || 0).toFixed(2)}{' '}
+                  {getStockUnitLabel(selectedSub.unit)} left
+                </Text>
+              </View>
+            </View>
+
+            {/* PRESETS */}
+            <Text style={homeStyles.fieldLabel}>Quantity</Text>
+
+            <View style={homeStyles.presetRow}>
+              {(selectedSub.presetAmounts || []).map((g: number) => {
+                const active = grams === String(g);
+
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      homeStyles.presetBtn,
+                      active && homeStyles.presetBtnActive,
+                    ]}
+                    onPress={() => setGrams(String(g))}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={[
+                        homeStyles.presetText,
+                        active && homeStyles.presetTextActive,
+                      ]}
+                    >
+                      {g}
+                      {getQuantityUnitLabel(selectedSub.unit)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* MAIN QUANTITY CONTROL */}
+            <View style={homeStyles.quantityControl}>
+              <TouchableOpacity
+                style={homeStyles.quantityButton}
+                onPress={() => {
+                  const current = parseFloat(grams || '0');
+                  const preset = Number(selectedSub.presetAmounts?.[0]) || 0;
+                  const next = Math.max(0, current - preset);
+
+                  setGrams(next > 0 ? String(next) : '');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={homeStyles.quantityButtonText}>−</Text>
+              </TouchableOpacity>
+
+              <TextInput
+                style={homeStyles.quantityInput}
+                value={grams}
+                onChangeText={setGrams}
+                keyboardType="decimal-pad"
+                placeholder="Quantity"
+                placeholderTextColor={COLORS.textFaint}
+                textAlign="center"
+              />
+
+              <TouchableOpacity
+                style={homeStyles.quantityButton}
+                onPress={() => {
+                  const current = parseFloat(grams || '0');
+                  const preset = Number(selectedSub.presetAmounts?.[0]) || 1;
+                  const next = current + preset;
+
+                  setGrams(String(next));
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={homeStyles.quantityButtonText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            {/* COUNT */}
+            {selectedSub.unit !== 'pcs' && (
+              <>
+                <View style={homeStyles.countHeader}>
+                  <Text style={homeStyles.fieldLabel}>How many?</Text>
+
+                  <Text style={homeStyles.countHint}>Same quantity each</Text>
+                </View>
+
+                <View style={homeStyles.countBox}>
+                  <TouchableOpacity
+                    style={homeStyles.countButton}
+                    onPress={() => {
+                      const current = parseInt(count || '1') || 1;
+
+                      setCount(String(Math.max(1, current - 1)));
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={homeStyles.countButtonText}>−</Text>
+                  </TouchableOpacity>
+
+                  <TextInput
+                    style={homeStyles.countInput}
+                    value={count}
+                    onChangeText={text => setCount(text.replace(/[^0-9]/g, ''))}
+                    keyboardType="number-pad"
+                    textAlign="center"
+                  />
+
+                  <TouchableOpacity
+                    style={homeStyles.countButton}
+                    onPress={() => {
+                      const current = parseInt(count || '1') || 1;
+
+                      setCount(String(current + 1));
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={homeStyles.countButtonText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* AMOUNT */}
+            <View style={homeStyles.amountSummary}>
+              <View>
+                <Text style={homeStyles.amountLabel}>Amount</Text>
+                {countNum > 1 && (
+                  <Text style={homeStyles.amountCalculation}>
+                    {countNum} × {formatCurrency(perUnitAmount)}
+                  </Text>
+                )}
+                {amountOverride !== null &&
+                  parseFloat(amountOverride) !== billAmount && (
+                    <Text style={homeStyles.amountCalculation}>
+                      Calculated: {formatCurrency(billAmount)}
+                    </Text>
+                  )}
+              </View>
+              <TextInput
+                style={homeStyles.amountInput}
+                value={amountOverride ?? billAmount.toFixed(2)}
+                onChangeText={setAmountOverride}
+                keyboardType="decimal-pad"
+                textAlign="right"
+              />
+            </View>
+
+            {/* ERROR */}
+            {!!error && (
+              <View style={homeStyles.errorBox}>
+                <View style={homeStyles.errorCircle}>
+                  <Text style={homeStyles.errorIcon}>!</Text>
+                </View>
+
+                <Text style={homeStyles.errorText}>{error}</Text>
+              </View>
+            )}
+
+            {/* ADD */}
+            <TouchableOpacity
+              style={homeStyles.addBtn}
+              onPress={addToCart}
+              activeOpacity={0.8}
+            >
+              <Text style={homeStyles.addBtnIcon}>+</Text>
+
+              <Text style={homeStyles.addBtnText}>Add to bill</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* PAYMENT */}
+        {cart.length > 0 && (
+          <View style={homeStyles.paymentSection}>
+            <View style={homeStyles.paymentHeader}>
+              <View>
+                <Text style={homeStyles.sectionTitle}>Payment</Text>
+
+                <Text style={homeStyles.sectionSubtitle}>
+                  Choose payment method
+                </Text>
+              </View>
+
+              <Text style={homeStyles.paymentTotal}>
+                {formatCurrency(cartTotal)}
+              </Text>
+            </View>
+
+            <PillGroup
+              options={[
+                {
+                  key: 'cash',
+                  label: 'Cash',
+                },
+                {
+                  key: 'gpay',
+                  label: 'GPay',
+                },
+                {
+                  key: 'split',
+                  label: 'Split',
+                },
+              ]}
+              selectedKey={paymentMode}
+              equalWidth
+              onSelect={key => {
+                const mode = key as 'cash' | 'gpay' | 'split';
+
+                setPaymentMode(mode);
+
+                if (mode === 'split') {
+                  setSplitCash(cartTotal.toFixed(2));
+                  setSplitGpay('0');
+                }
+              }}
+            />
+
+            {/* SPLIT PAYMENT */}
+            {paymentMode === 'split' && (
+              <View style={homeStyles.splitBox}>
+                <View style={homeStyles.splitInputGroup}>
+                  <Text style={homeStyles.splitLabel}>Cash</Text>
+
+                  <TextInput
+                    style={homeStyles.splitInput}
+                    value={splitCash}
+                    onChangeText={setSplitCash}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+
+                <View style={homeStyles.splitInputGroup}>
+                  <Text style={homeStyles.splitLabel}>GPay</Text>
+
+                  <TextInput
+                    style={homeStyles.splitInput}
+                    value={splitGpay}
+                    onChangeText={setSplitGpay}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+
+                <Text
+                  style={
+                    splitMismatch
+                      ? homeStyles.splitErrorText
+                      : homeStyles.splitOkText
+                  }
+                >
+                  {formatCurrency(splitCashNum)} +{' '}
+                  {formatCurrency(splitGpayNum)} = {formatCurrency(splitTotal)}{' '}
+                  {splitMismatch
+                    ? `(should be ${formatCurrency(cartTotal)})`
+                    : '✓'}
+                </Text>
+              </View>
+            )}
+
+            {/* GENERAL ERROR */}
+            {!!error && !selectedSub && (
+              <View style={homeStyles.errorBox}>
+                <View style={homeStyles.errorCircle}>
+                  <Text style={homeStyles.errorIcon}>!</Text>
+                </View>
+
+                <Text style={homeStyles.errorText}>{error}</Text>
+              </View>
+            )}
+
+            {/* COMPLETE SALE */}
+            <TouchableOpacity
+              style={[
+                homeStyles.completeButton,
+                saving && homeStyles.completeButtonDisabled,
+              ]}
+              onPress={submitBill}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <>
+                  <View style={homeStyles.completeIcon}>
+                    <Text style={homeStyles.completeIconText}>✓</Text>
+                  </View>
+
+                  <View>
+                    <Text style={homeStyles.completeText}>Complete sale</Text>
+
+                    <Text style={homeStyles.completeSubtext}>
+                      {cart.length} item
+                      {cart.length !== 1 ? 's' : ''}
+                    </Text>
+                  </View>
+
+                  <Text style={homeStyles.completeAmount}>
+                    {formatCurrency(cartTotal)}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={homeStyles.bottomSpace} />
     </ScreenContainer>
   );
 };
-
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.cream,
-  },
-  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  quickBtn: {
-    backgroundColor: COLORS.cacao,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 6,
-  },
-  quickBtnText: { color: COLORS.white, fontWeight: '600', fontSize: 13 },
-  presetBtn: {
-    backgroundColor: COLORS.border,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginBottom: 4,
-  },
-  presetText: { color: COLORS.cacao, fontWeight: '600', fontSize: 13 },
-  splitErrorText: { color: COLORS.danger, fontSize: 12.5, marginTop: 6 },
-  splitOkText: { color: COLORS.success, fontSize: 12.5, marginTop: 6 },
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-  },
-  addBtn: {
-    marginTop: 16,
-    backgroundColor: COLORS.success,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  addBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 14 },
-  error: { color: COLORS.danger, marginTop: 12 },
-  button: {
-    marginTop: 24,
-    backgroundColor: COLORS.caramel,
-    paddingVertical: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  buttonText: { color: COLORS.white, fontWeight: '700', fontSize: 15 },
-});
 
 export default Home;

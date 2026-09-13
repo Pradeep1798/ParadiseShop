@@ -2,26 +2,31 @@ import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  ScrollView,
-  RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
+
 import {
   getFirestore,
   collection,
   getDocs,
 } from '@react-native-firebase/firestore';
+
 import {
   getQuantityUnitLabel,
   computeAmount,
   formatCurrency,
 } from 'utils/HelperFn';
+
 import ScreenContainer from 'components/ScreenContainer';
+import Card from 'components/Card';
+import EmptyState from 'components/EmptyState';
+import { getCategories } from 'services/Service';
 
 const PriceList = ({ route }: any) => {
   const { shopId } = route.params || {};
+
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -32,23 +37,27 @@ const PriceList = ({ route }: any) => {
       console.log('shopId is missing, skipping fetch');
       return;
     }
-    const db = getFirestore();
-    const snap = await getDocs(collection(db, 'shops', shopId, 'categories'));
-    setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }, [shopId]);
 
+    const data = await getCategories(shopId);
+    setCategories(data);
+  }, [shopId]);
   React.useEffect(() => {
     loadCategories().finally(() => setLoading(false));
   }, [loadCategories]);
 
   const onRefresh = async () => {
     setRefreshing(true);
+
     await loadCategories();
+
     setRefreshing(false);
   };
 
   const toggleCategory = (id: string) => {
-    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+    setExpanded(prev => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
   };
 
   if (loading) {
@@ -61,21 +70,20 @@ const PriceList = ({ route }: any) => {
 
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      {/* <Text style={styles.title}>Price List</Text> */}
-
-      {categories.length === 0 && (
-        <Text style={styles.empty}>No products found.</Text>
-      )}
+      {categories.length === 0 && <EmptyState text="No products found." />}
 
       {categories.map(cat => {
         const isOpen = !!expanded[cat.id];
+
         return (
-          <View key={cat.id} style={styles.categoryBox}>
+          <Card key={cat.id} style={styles.categoryCard}>
             <TouchableOpacity
               style={styles.categoryHeader}
               onPress={() => toggleCategory(cat.id)}
+              activeOpacity={0.75}
             >
               <Text style={styles.categoryName}>{cat.name}</Text>
+
               <Text style={styles.chevron}>{isOpen ? '▾' : '▸'}</Text>
             </TouchableOpacity>
 
@@ -83,6 +91,7 @@ const PriceList = ({ route }: any) => {
               (cat.subVarieties || []).map((sv: any) => (
                 <View key={sv.id} style={styles.itemRow}>
                   <Text style={styles.itemName}>{sv.name}</Text>
+
                   <View style={styles.priceWrap}>
                     {sv.presetAmounts && sv.presetAmounts.length > 0 ? (
                       sv.presetAmounts.map((amt: number) => (
@@ -102,72 +111,66 @@ const PriceList = ({ route }: any) => {
                   </View>
                 </View>
               ))}
-          </View>
+          </Card>
         );
       })}
 
-      <View style={{ height: 40 }} />
+      <View style={styles.bottomSpace} />
     </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FBF4EC',
-    padding: 24,
-    // paddingTop: 48,
-  },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FBF4EC',
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2B160C',
-    marginBottom: 16,
-  },
-  empty: { color: '#7A4A2B', textAlign: 'center', marginTop: 30 },
-  categoryBox: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 12,
-    marginBottom: 12,
+
+  categoryCard: {
+    padding: 0,
     overflow: 'hidden',
-    shadowColor: '#5C3620',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
+
   categoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
   },
-  categoryName: { fontSize: 15, fontWeight: '700', color: '#5C3620' },
-  chevron: { fontSize: 16, color: '#C17A3D' },
+
+  categoryName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#5C3620',
+  },
+
+  chevron: {
+    fontSize: 16,
+    color: '#C17A3D',
+  },
+
   itemRow: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: '#F3E6D5',
   },
+
   itemName: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2B160C',
     marginBottom: 4,
   },
-  priceWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+
+  priceWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
   priceTag: {
     fontSize: 12.5,
     color: '#C17A3D',
@@ -176,6 +179,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+  },
+
+  bottomSpace: {
+    height: 40,
   },
 });
 

@@ -78,3 +78,4 @@ export async function getManagementStaff(shopId: string) {
   const staff = await getStaffList(shopId);
   return staff.filter((p) => p.role === 'owner' || p.role === 'manager');
 }
+

@@ -28,11 +28,16 @@ const formatDate = (timestamp: number) => {
       minute: '2-digit',
     })}`;
   }
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+  });
 };
 
 const Needs = ({ route }: any) => {
   const { shopId, staffName } = route.params;
+
   const [itemName, setItemName] = useState('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -45,10 +50,13 @@ const Needs = ({ route }: any) => {
 
   const loadItems = useCallback(async () => {
     const db = getFirestore();
+
     const snap = await getDocs(collection(db, 'shops', shopId, 'neededItems'));
+
     const list = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a: any, b: any) => b.timestamp - a.timestamp);
+
     setItems(list);
   }, [shopId]);
 
@@ -61,15 +69,19 @@ const Needs = ({ route }: any) => {
     await loadItems();
     setRefreshing(false);
   };
+
   const addItem = async () => {
     if (!header.trim() || !itemName.trim()) {
       setError('Enter both a header and an item');
       return;
     }
+
     setSaving(true);
     setError('');
+
     try {
       const db = getFirestore();
+
       await addDoc(collection(db, 'shops', shopId, 'neededItems'), {
         header: header.trim(),
         itemName: itemName.trim(),
@@ -78,9 +90,11 @@ const Needs = ({ route }: any) => {
         timestamp: Date.now(),
         fulfilled: false,
       });
-      setItemName(''); // clears
-      setNote(''); // clears
-      // header stays as-is — removed setHeader('')
+
+      setItemName('');
+      setNote('');
+
+      // header stays as-is
       await loadItems();
     } catch (e) {
       setError('Something went wrong, try again');
@@ -88,28 +102,38 @@ const Needs = ({ route }: any) => {
       setSaving(false);
     }
   };
+
   const toggleFulfilled = async (item: any) => {
     const db = getFirestore();
+
     await updateDoc(doc(db, 'shops', shopId, 'neededItems', item.id), {
       fulfilled: !item.fulfilled,
       fulfilledBy: !item.fulfilled ? staffName : null,
       fulfilledAt: !item.fulfilled ? Date.now() : null,
     });
+
     await loadItems();
   };
 
   const groupByHeader = (list: any[]) => {
     const grouped: Record<string, any[]> = {};
+
     list.forEach(item => {
       const key = item.header || 'Other';
-      if (!grouped[key]) grouped[key] = [];
+
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+
       grouped[key].push(item);
     });
+
     return grouped;
   };
 
   const pending = items.filter(i => !i.fulfilled);
   const fulfilled = items.filter(i => i.fulfilled);
+
   const pendingGrouped = groupByHeader(pending);
   const fulfilledGrouped = groupByHeader(fulfilled);
 
@@ -123,109 +147,183 @@ const Needs = ({ route }: any) => {
 
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      {/* <Text style={styles.title}>Needed Items</Text> */}
-      <Text style={styles.subtitle}>Anything running low? Add it here.</Text>
-      <Text style={styles.label}>Header (e.g. Nuts, Mold)</Text>
-      <TextInput
-        style={styles.input}
-        value={header}
-        onChangeText={setHeader}
-        placeholder="e.g. Nuts"
-      />
+      {/* Header */}
+      <View style={styles.headerSection}>
+        <Text style={styles.title}>Needed Items</Text>
+        <Text style={styles.subtitle}>Anything running low? Add it here.</Text>
+      </View>
 
-      <Text style={styles.label}>Item</Text>
-      <TextInput
-        style={styles.input}
-        value={itemName}
-        onChangeText={setItemName}
-        placeholder="e.g. wafer roll boxes, cashew bits"
-      />
+      {/* Add Item Form */}
+      <View style={styles.formCard}>
+        <Text style={styles.formTitle}>Add an item</Text>
 
-      <Text style={styles.label}>Note (optional)</Text>
-      <TextInput
-        style={styles.input}
-        value={note}
-        onChangeText={setNote}
-        placeholder="e.g. need at least 5kg"
-      />
+        <Text style={styles.label}>Header</Text>
+        <TextInput
+          style={styles.input}
+          value={header}
+          onChangeText={setHeader}
+          placeholder="e.g. Nuts, Mold"
+          placeholderTextColor="#B5A08A"
+        />
 
-      {!!error && <Text style={styles.error}>{error}</Text>}
+        <Text style={styles.label}>Item</Text>
+        <TextInput
+          style={styles.input}
+          value={itemName}
+          onChangeText={setItemName}
+          placeholder="e.g. wafer roll boxes, cashew bits"
+          placeholderTextColor="#B5A08A"
+        />
 
-      <TouchableOpacity
-        style={styles.addBtn}
-        onPress={addItem}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.addBtnText}>+ Add to list</Text>
+        <Text style={styles.label}>Note</Text>
+        <TextInput
+          style={styles.input}
+          value={note}
+          onChangeText={setNote}
+          placeholder="e.g. need at least 5kg"
+          placeholderTextColor="#B5A08A"
+        />
+
+        {!!error && (
+          <View style={styles.errorBox}>
+            <Text style={styles.error}>{error}</Text>
+          </View>
         )}
-      </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.addBtn, saving && styles.addBtnDisabled]}
+          onPress={addItem}
+          disabled={saving}
+          activeOpacity={0.8}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Text style={styles.addIcon}>+</Text>
+              <Text style={styles.addBtnText}>Add to list</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Pending */}
+      <View style={styles.sectionHeader}>
+        <View>
+          <Text style={styles.sectionTitle}>Pending</Text>
+          <Text style={styles.sectionSubtitle}>
+            {pending.length === 0
+              ? 'Nothing needed right now'
+              : `${pending.length} item${
+                  pending.length !== 1 ? 's' : ''
+                } to buy`}
+          </Text>
+        </View>
+
+        <View style={styles.countBadge}>
+          <Text style={styles.countBadgeText}>{pending.length}</Text>
+        </View>
+      </View>
 
       <View style={styles.listBox}>
-        <Text style={styles.listTitle}>Pending ({pending.length})</Text>
         {pending.length === 0 && (
-          <Text style={styles.empty}>Nothing needed right now.</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>✓</Text>
+            <Text style={styles.emptyTitle}>All caught up</Text>
+            <Text style={styles.empty}>Nothing needed right now.</Text>
+          </View>
         )}
+
         {Object.entries(pendingGrouped).map(([headerName, groupItems]) => (
           <View key={headerName} style={styles.group}>
-            <Text style={styles.groupHeader}>{headerName}</Text>
+            <View style={styles.groupHeaderRow}>
+              <Text style={styles.groupHeader}>{headerName}</Text>
+
+              <View style={styles.groupLine} />
+            </View>
+
             {(groupItems as any[]).map(item => (
               <TouchableOpacity
                 key={item.id}
                 style={styles.itemRow}
                 onPress={() => toggleFulfilled(item)}
+                activeOpacity={0.75}
               >
                 <View style={styles.checkbox} />
-                <View style={{ flex: 1 }}>
+
+                <View style={styles.itemContent}>
                   <Text style={styles.itemName}>{item.itemName}</Text>
+
                   {!!item.note && (
                     <Text style={styles.itemNote}>{item.note}</Text>
                   )}
+
                   <Text style={styles.itemMeta}>
-                    added by {item.addedBy} · {formatDate(item.timestamp)}
+                    Added by {item.addedBy} · {formatDate(item.timestamp)}
                   </Text>
                 </View>
+
+                <Text style={styles.itemArrow}>›</Text>
               </TouchableOpacity>
             ))}
           </View>
         ))}
       </View>
+
+      {/* Bought Toggle */}
       <TouchableOpacity
         onPress={() => setShowFulfilled(s => !s)}
         style={styles.toggleLink}
+        activeOpacity={0.7}
       >
-        <Text style={styles.toggleLinkText}>
-          {showFulfilled ? 'Hide' : 'Show'} bought items ({fulfilled.length})
-        </Text>
+        <View style={styles.toggleInner}>
+          <Text style={styles.toggleLinkText}>
+            {showFulfilled ? 'Hide' : 'Show'} bought items
+          </Text>
+
+          <View style={styles.boughtCount}>
+            <Text style={styles.boughtCountText}>{fulfilled.length}</Text>
+          </View>
+
+          <Text style={styles.toggleArrow}>{showFulfilled ? '⌃' : '⌄'}</Text>
+        </View>
       </TouchableOpacity>
 
+      {/* Bought Items */}
       {showFulfilled && (
-        <View style={styles.listBox}>
+        <View style={styles.boughtSection}>
           {fulfilled.length === 0 && (
-            <Text style={styles.empty}>Nothing marked bought yet.</Text>
+            <View style={styles.emptyBought}>
+              <Text style={styles.empty}>Nothing marked bought yet.</Text>
+            </View>
           )}
+
           {fulfilled.map(item => (
             <TouchableOpacity
               key={item.id}
               style={styles.itemRow}
               onPress={() => toggleFulfilled(item)}
+              activeOpacity={0.75}
             >
               <View style={[styles.checkbox, styles.checkboxChecked]}>
                 <Text style={styles.checkmark}>✓</Text>
               </View>
-              <View style={{ flex: 1 }}>
+
+              <View style={styles.itemContent}>
                 <Text style={[styles.itemName, styles.itemNameDone]}>
                   {item.itemName}
                 </Text>
+
                 {!!item.note && (
                   <Text style={styles.itemNote}>{item.note}</Text>
                 )}
+
                 <Text style={styles.itemMeta}>
-                  bought by {item.fulfilledBy} · {formatDate(item.fulfilledAt)}
+                  Bought by {item.fulfilledBy} · {formatDate(item.fulfilledAt)}
                 </Text>
               </View>
+
+              <Text style={styles.itemArrow}>›</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -243,83 +341,342 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FBF4EC',
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#2B160C' },
-  subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 1, marginBottom: 16 },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#7A4A2B',
-    marginTop: 12,
+
+  headerSection: {
     marginBottom: 8,
   },
-  group: { marginBottom: 14 },
-  groupHeader: {
-    fontSize: 12.5,
+
+  title: {
+    fontSize: 23,
+    fontWeight: '800',
+    color: '#2B160C',
+    letterSpacing: -0.3,
+  },
+
+  subtitle: {
+    fontSize: 13,
+    color: '#8A6B4E',
+    marginTop: 4,
+  },
+
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5D4BC',
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 14,
+    shadowColor: '#5C3620',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  formTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#5C3620',
+    marginBottom: 4,
+  },
+
+  label: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#C17A3D',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginTop: 8,
+    color: '#7A4A2B',
+    marginTop: 14,
+    marginBottom: 7,
+    letterSpacing: 0.2,
   },
+
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FCF8F3',
     borderWidth: 1,
     borderColor: '#E2CFAF',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
+    borderRadius: 11,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#2B160C',
   },
-  error: { color: '#9C3654', marginTop: 12 },
-  addBtn: {
-    marginTop: 20,
-    backgroundColor: '#C17A3D',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  listBox: {
-    marginTop: 24,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 12,
-    padding: 16,
-  },
-  listTitle: { fontWeight: '700', color: '#2B160C', marginBottom: 8 },
-  empty: { color: '#7A4A2B', fontSize: 13 },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+
+  errorBox: {
+    backgroundColor: '#FBECEF',
+    borderRadius: 9,
+    paddingHorizontal: 11,
     paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3E6D5',
+    marginTop: 12,
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: '#C17A3D',
+
+  error: {
+    color: '#9C3654',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  addBtn: {
+    marginTop: 18,
+    backgroundColor: '#C17A3D',
+    minHeight: 48,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 7,
+  },
+
+  addBtnDisabled: {
+    opacity: 0.7,
+  },
+
+  addIcon: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    lineHeight: 20,
+    fontWeight: '400',
+  },
+
+  addBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 27,
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#2B160C',
+  },
+
+  sectionSubtitle: {
+    fontSize: 11.5,
+    color: '#9C8768',
     marginTop: 2,
   },
-  checkboxChecked: {
-    backgroundColor: '#5C7D57',
-    borderColor: '#5C7D57',
+
+  countBadge: {
+    minWidth: 30,
+    height: 30,
+    paddingHorizontal: 8,
+    borderRadius: 15,
+    backgroundColor: '#F3E6D5',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkmark: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  itemName: { fontSize: 14, fontWeight: '600', color: '#2B160C' },
-  itemNameDone: { textDecorationLine: 'line-through', color: '#9C8768' },
-  itemNote: { fontSize: 12, color: '#7A4A2B', marginTop: 2 },
-  itemMeta: { fontSize: 10.5, color: '#9C8768', marginTop: 3 },
-  toggleLink: { marginTop: 16, alignSelf: 'center' },
+
+  countBadgeText: {
+    color: '#7A4A2B',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  listBox: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    shadowColor: '#5C3620',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+
+  group: {
+    marginBottom: 5,
+  },
+
+  groupHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 2,
+    gap: 9,
+  },
+
+  groupHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#C17A3D',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+
+  groupLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#F3E6D5',
+  },
+
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    minHeight: 64,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3E6D5',
+    gap: 11,
+  },
+
+  checkbox: {
+    width: 21,
+    height: 21,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#C17A3D',
+    marginTop: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  checkboxChecked: {
+    backgroundColor: '#5C7D57',
+    borderColor: '#5C7D57',
+  },
+
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  itemContent: {
+    flex: 1,
+    paddingRight: 4,
+  },
+
+  itemName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2B160C',
+  },
+
+  itemNameDone: {
+    textDecorationLine: 'line-through',
+    color: '#9C8768',
+  },
+
+  itemNote: {
+    fontSize: 12,
+    color: '#7A4A2B',
+    marginTop: 3,
+  },
+
+  itemMeta: {
+    fontSize: 10.5,
+    color: '#A18C73',
+    marginTop: 5,
+  },
+
+  itemArrow: {
+    fontSize: 22,
+    color: '#C8B39A',
+    lineHeight: 22,
+    marginTop: 1,
+  },
+
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 28,
+  },
+
+  emptyIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#EAF2E8',
+    color: '#5C7D57',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 38,
+    fontSize: 19,
+    fontWeight: '800',
+    overflow: 'hidden',
+  },
+
+  emptyTitle: {
+    color: '#5C3620',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 9,
+  },
+
+  empty: {
+    color: '#8E7962',
+    fontSize: 12,
+    marginTop: 3,
+    textAlign: 'center',
+  },
+
+  toggleLink: {
+    marginTop: 17,
+    alignSelf: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+  },
+
+  toggleInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+
   toggleLinkText: {
     color: '#7A4A2B',
     fontSize: 12.5,
-    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
+
+  boughtCount: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: '#F3E6D5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  boughtCountText: {
+    color: '#7A4A2B',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  toggleArrow: {
+    color: '#C17A3D',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  boughtSection: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2CFAF',
+    borderRadius: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+
+  emptyBought: {
+    paddingVertical: 22,
   },
 });
 

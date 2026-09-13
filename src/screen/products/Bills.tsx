@@ -16,6 +16,8 @@ import Card from 'components/Card';
 import EmptyState from 'components/EmptyState';
 import ModalOverlay from 'components/ModalOverlay';
 import PillGroup from 'components/PillGroup';
+import AppButton from 'components/AppButton';
+import AppInput from 'components/AppInput';
 
 import {
   addTransaction,
@@ -23,16 +25,16 @@ import {
   getTransactionsForDate,
   updateCategoryStock,
   updateTransaction,
+  addVoidRecord,
+  getManagementStaff,
 } from 'services/Service';
 
 import { excludeVoided } from 'utils/SalesCalculation';
 import { useFocusRefresh } from 'utils/hooks';
 import { COLORS } from 'theme/Theme';
-import AppButton from 'components/AppButton';
-import AppInput from 'components/AppInput';
 
 const Bills = ({ route }: any) => {
-  const { shopId, staffName } = route.params;
+const { shopId, staffName, role } = route.params;
   const [bills, setBills] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [returningItem, setReturningItem] = useState<any>(null);
@@ -48,21 +50,27 @@ const Bills = ({ route }: any) => {
     null,
   );
 
+  // Void state
+  const [voidingBill, setVoidingBill] = useState<any>(null);
+  const [voidApprover, setVoidApprover] = useState<string | null>(null);
+  const [managementStaff, setManagementStaff] = useState<any[]>([]);
+  const [voidPasswordInput, setVoidPasswordInput] = useState('');
+  const [voidReason, setVoidReason] = useState('');
+  const [voidError, setVoidError] = useState('');
+  const [voidSaving, setVoidSaving] = useState(false);
+
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
 
+  const canRequestVoid = role === 'owner' || role === 'manager';
+
   const isToday = selectedDate === new Date().toISOString().slice(0, 10);
   const changeDay = (offset: number) => {
     const d = new Date(selectedDate);
-
     d.setDate(d.getDate() + offset);
-
     const newDate = d.toISOString().slice(0, 10);
-    if (newDate > new Date().toISOString().slice(0, 10)) {
-      return;
-    }
-
+    if (newDate > new Date().toISOString().slice(0, 10)) return;
     setSelectedDate(newDate);
   };
 
@@ -70,35 +78,26 @@ const Bills = ({ route }: any) => {
     const d = new Date(dateStr);
     const todayStr = new Date().toISOString().slice(0, 10);
     const yestStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
-    if (dateStr === todayStr) {
-      return 'Today';
-    }
-
-    if (dateStr === yestStr) {
-      return 'Yesterday';
-    }
-
+    if (dateStr === todayStr) return 'Today';
+    if (dateStr === yestStr) return 'Yesterday';
     return d.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
   };
+
   const load = useCallback(async () => {
     const [cats, all] = await Promise.all([
       getCategories(shopId),
       getTransactionsForDate(shopId, selectedDate),
     ]);
-
     setCategories(cats);
 
     const salesToday = excludeVoided(all.filter((t: any) => t.type === 'sale'));
-
     const returns = all.filter((t: any) => t.type === 'return');
 
     const grouped: Record<string, any> = {};
-
     salesToday.forEach((t: any) => {
       if (!grouped[t.billId]) {
         grouped[t.billId] = {
@@ -109,11 +108,9 @@ const Bills = ({ route }: any) => {
           items: [],
         };
       }
-
       const returnedForThisItem = returns
         .filter((r: any) => r.originalTransactionId === t.id)
         .reduce((sum: number, r: any) => sum + r.quantity, 0);
-
       const refundForThisItem = returns
         .filter((r: any) => r.originalTransactionId === t.id)
         .reduce((sum: number, r: any) => sum + r.refundAmount, 0);
@@ -135,31 +132,28 @@ const Bills = ({ route }: any) => {
 
   const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
   const staffOptions = Array.from(new Set(bills.map(b => b.staffName)));
-
   const activeFilterCount = (staffFilter ? 1 : 0) + (paymentFilter ? 1 : 0);
+
+  React.useEffect(() => {
+    getManagementStaff(shopId).then(setManagementStaff);
+  }, [shopId]);
 
   const openReturn = (item: any) => {
     setReturningItem(item);
-
     setReturnQty(String(item.quantity - item.returnedQty));
-
     setRefundPayment(
       item.paymentMethod === 'split' ? 'cash' : item.paymentMethod,
     );
-
     setReturnError('');
   };
 
   const confirmReturn = async () => {
     const qty = parseFloat(returnQty);
-
     const maxReturnable = returningItem.quantity - returningItem.returnedQty;
-
     if (!qty || qty <= 0) {
       setReturnError('Enter a valid quantity');
       return;
     }
-
     if (qty > maxReturnable) {
       setReturnError(
         `Only ${maxReturnable}${returningItem.unit} can be returned`,
@@ -169,30 +163,21 @@ const Bills = ({ route }: any) => {
 
     setReturnSaving(true);
     setReturnError('');
-
     try {
       const refundAmount = Number(
         ((qty / returningItem.quantity) * returningItem.finalAmount).toFixed(2),
       );
-
       const restoreAmount = computeStockDelta(returningItem.unit, qty);
-
       const category = categories.find(c => c.id === returningItem.categoryId);
-
       if (!category) {
         setReturnError('Category not found. Try again.');
         return;
       }
-
       const updatedSubVarieties = category.subVarieties.map((sv: any) =>
         sv.id === returningItem.subVarietyId
-          ? {
-              ...sv,
-              stock: sv.stock + restoreAmount,
-            }
+          ? { ...sv, stock: sv.stock + restoreAmount }
           : sv,
       );
-
       await updateCategoryStock(
         shopId,
         returningItem.categoryId,
@@ -218,7 +203,6 @@ const Bills = ({ route }: any) => {
 
       setReturningItem(null);
       setReturnQty('');
-
       await load();
     } catch (e) {
       setReturnError('Something went wrong, try again');
@@ -235,7 +219,6 @@ const Bills = ({ route }: any) => {
 
   const updateBillPayment = async (bill: any, newMethod: 'cash' | 'gpay') => {
     setPaymentSaving(true);
-
     try {
       await Promise.all(
         bill.items.map((item: any) =>
@@ -246,9 +229,7 @@ const Bills = ({ route }: any) => {
           }),
         ),
       );
-
       setEditingPayment(null);
-
       await load();
     } catch (e) {
       console.log('Could not update payment method');
@@ -257,15 +238,87 @@ const Bills = ({ route }: any) => {
     }
   };
 
+  const openVoid = (bill: any) => {
+    setVoidingBill(bill);
+    setVoidApprover(null);
+    setVoidPasswordInput('');
+    setVoidReason('');
+    setVoidError('');
+  };
+
+  const confirmVoid = async () => {
+    const approver = managementStaff.find(p => p.name === voidApprover);
+    if (!approver) {
+      setVoidError('Select who is approving this void');
+      return;
+    }
+    if (!voidReason.trim()) {
+      setVoidError('Enter a reason for voiding this bill');
+      return;
+    }
+    if (voidPasswordInput !== approver.password) {
+      setVoidError('Incorrect password');
+      return;
+    }
+
+    setVoidSaving(true);
+    setVoidError('');
+    try {
+      const byCategory: Record<string, any[]> = {};
+      voidingBill.items.forEach((item: any) => {
+        if (!byCategory[item.categoryId]) byCategory[item.categoryId] = [];
+        byCategory[item.categoryId].push(item);
+      });
+      for (const categoryId of Object.keys(byCategory)) {
+        const category = categories.find(c => c.id === categoryId);
+        const itemsForThisCategory = byCategory[categoryId];
+        const updatedSubVarieties = category.subVarieties.map((sv: any) => {
+          const restore = itemsForThisCategory
+            .filter(i => i.subVarietyId === sv.id)
+            .reduce(
+              (sum, i) =>
+                sum + computeStockDelta(sv.unit, i.quantity - i.returnedQty),
+              0,
+            );
+          return restore > 0 ? { ...sv, stock: sv.stock + restore } : sv;
+        });
+        await updateCategoryStock(shopId, categoryId, updatedSubVarieties);
+      }
+
+      await Promise.all(
+        voidingBill.items.map((item: any) =>
+          updateTransaction(shopId, item.id, { voided: true }),
+        ),
+      );
+
+      await addVoidRecord(shopId, {
+        billId: voidingBill.billId,
+        items: voidingBill.items.map((i: any) => ({
+          name: i.subVarietyName,
+          qty: i.quantity,
+          unit: i.unit,
+          amount: i.finalAmount,
+        })),
+        originalAmount: voidingBill.total,
+        requestedBy: staffName,
+        approvedBy: approver.name,
+        reason: voidReason.trim(),
+        timestamp: Date.now(),
+        date: new Date().toISOString().slice(0, 10),
+      });
+
+      setVoidingBill(null);
+      await load();
+    } catch (e) {
+      setVoidError('Something went wrong, try again');
+    } finally {
+      setVoidSaving(false);
+    }
+  };
+
   const filteredBills = bills.filter(bill => {
-    if (staffFilter && bill.staffName !== staffFilter) {
-      return false;
-    }
-
-    if (paymentFilter && bill.paymentMethod !== paymentFilter) {
-      return false;
-    }
-
+    if (staffFilter && bill.staffName !== staffFilter) return false;
+    if (paymentFilter && bill.paymentMethod !== paymentFilter) return false;
     return true;
   });
 
@@ -288,11 +341,9 @@ const Bills = ({ route }: any) => {
           >
             <Text style={styles.dateNavArrow}>‹</Text>
           </TouchableOpacity>
-
           <Text style={styles.dateNavLabel}>
             {formatDateHeader(selectedDate)}
           </Text>
-
           <TouchableOpacity
             onPress={() => changeDay(1)}
             style={styles.dateNavBtn}
@@ -312,20 +363,17 @@ const Bills = ({ route }: any) => {
 
         <View style={styles.filterRow}>
           <Text style={styles.subtitle}>
-            {filteredBills.length} bill
-            {filteredBills.length !== 1 ? 's' : ''} ·{' '}
+            {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''} ·{' '}
             {formatCurrency(filteredBills.reduce((s, b) => s + b.total, 0))}{' '}
             total
           </Text>
-
           <TouchableOpacity
             style={styles.filterIconBtn}
             onPress={() => setFilterVisible(v => !v)}
             activeOpacity={0.75}
           >
             <Text style={styles.filterIconText}>
-              🔍 Filter
-              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              🔍 Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             </Text>
           </TouchableOpacity>
         </View>
@@ -333,47 +381,27 @@ const Bills = ({ route }: any) => {
         {filterVisible && (
           <View style={styles.filterPanel}>
             <SectionLabel>Staff</SectionLabel>
-
             <PillGroup
               options={[
-                {
-                  key: '',
-                  label: 'All',
-                },
-                ...staffOptions.map(name => ({
-                  key: name,
-                  label: name,
-                })),
+                { key: '', label: 'All' },
+                ...staffOptions.map(name => ({ key: name, label: name })),
               ]}
               selectedKey={staffFilter ?? ''}
               onSelect={key => setStaffFilter(key || null)}
             />
-
             <View style={styles.filterSectionGap} />
-
             <SectionLabel>Payment Mode</SectionLabel>
-
             <PillGroup
               options={[
-                {
-                  key: '',
-                  label: 'All',
-                },
-                {
-                  key: 'cash',
-                  label: 'Cash',
-                },
-                {
-                  key: 'gpay',
-                  label: 'GPay',
-                },
+                { key: '', label: 'All' },
+                { key: 'cash', label: 'Cash' },
+                { key: 'gpay', label: 'GPay' },
               ]}
               selectedKey={paymentFilter ?? ''}
               onSelect={key =>
                 setPaymentFilter(key ? (key as 'cash' | 'gpay') : null)
               }
             />
-
             <TouchableOpacity
               style={styles.applyBtn}
               onPress={() => setFilterVisible(false)}
@@ -391,24 +419,26 @@ const Bills = ({ route }: any) => {
             (sum: number, i: any) => sum + (i.discount || 0),
             0,
           );
-
           const billExcessTotal = bill.items.reduce(
             (sum: number, i: any) => sum + (i.excess || 0),
             0,
           );
+          const isVoided = bill.items.every((i: any) => i.voided);
 
           return (
-            <Card key={bill.billId}>
+            <Card
+              key={bill.billId}
+              style={isVoided ? styles.voidedCard : undefined}
+            >
+              {isVoided && <Text style={styles.voidedBadge}>VOIDED</Text>}
+
               {bill.items.map((item: any, i: number) => (
                 <TouchableOpacity
                   key={i}
                   style={styles.itemRow}
                   onPress={() =>
                     item.returnedQty < item.quantity &&
-                    openReturn({
-                      ...item,
-                      billId: bill.billId,
-                    })
+                    openReturn({ ...item, billId: bill.billId })
                   }
                   disabled={item.returnedQty >= item.quantity}
                   activeOpacity={item.returnedQty < item.quantity ? 0.7 : 1}
@@ -419,18 +449,17 @@ const Bills = ({ route }: any) => {
                       ? ` — ${item.returnedQty}${item.unit} returned`
                       : ''}
                   </Text>
-
                   <Text style={styles.itemAmount}>
                     {formatCurrency(item.billAmount ?? item.finalAmount)}
                   </Text>
                 </TouchableOpacity>
               ))}
+
               {billDiscountTotal > 0 && (
                 <View style={styles.itemRow}>
                   <Text style={[styles.itemText, styles.discountText]}>
                     Discount
                   </Text>
-
                   <Text style={[styles.itemAmount, styles.discountText]}>
                     -{formatCurrency(billDiscountTotal)}
                   </Text>
@@ -442,7 +471,6 @@ const Bills = ({ route }: any) => {
                   <Text style={[styles.itemText, styles.excessText]}>
                     Excess
                   </Text>
-
                   <Text style={[styles.itemAmount, styles.excessText]}>
                     +{formatCurrency(billExcessTotal)}
                   </Text>
@@ -467,7 +495,6 @@ const Bills = ({ route }: any) => {
                           Cash
                         </Text>
                       </TouchableOpacity>
-
                       <TouchableOpacity
                         style={[styles.badge, styles.badgeGpay]}
                         onPress={() => updateBillPayment(bill, 'gpay')}
@@ -501,19 +528,22 @@ const Bills = ({ route }: any) => {
                             ? 'GPay'
                             : 'Cash'}
                         </Text>
-
                         <Text style={styles.editIcon}>✎</Text>
                       </View>
                     </TouchableOpacity>
                   )}
-
                   <Text style={styles.staffName} numberOfLines={1}>
                     {bill.staffName} · {formatTime(bill.timestamp)}
                   </Text>
                 </View>
-
                 <Text style={styles.amount}>{formatCurrency(bill.total)}</Text>
               </View>
+
+          {!isVoided && canRequestVoid && (
+  <TouchableOpacity onPress={() => openVoid(bill)}>
+    <Text style={styles.voidLink}>Void this bill</Text>
+  </TouchableOpacity>
+)}
             </Card>
           );
         })}
@@ -523,9 +553,7 @@ const Bills = ({ route }: any) => {
 
       <ModalOverlay visible={!!returningItem}>
         <Text style={styles.modalTitle}>Return Item</Text>
-
         <Text style={styles.modalTitle}>{returningItem?.name}</Text>
-
         <AppInput
           label={`Quantity (Available: ${returningItem?.soldQty ?? 0})`}
           value={returnQty}
@@ -534,11 +562,9 @@ const Bills = ({ route }: any) => {
           placeholder="Enter quantity"
           editable={!returnSaving}
         />
-
-        <Text style={[styles.subtitle, { marginBottom: 4}]}>
+        <Text style={[styles.subtitle, { marginBottom: 4 }]}>
           Refund Payment
         </Text>
-
         <PillGroup
           options={[
             { key: 'cash', label: 'Cash' },
@@ -548,9 +574,7 @@ const Bills = ({ route }: any) => {
           onSelect={key => setRefundPayment(key as 'cash' | 'gpay')}
           equalWidth
         />
-
         {!!returnError && <Text style={styles.error}>{returnError}</Text>}
-
         <View style={styles.modalButtonRow}>
           <AppButton
             label="Confirm Return"
@@ -560,7 +584,6 @@ const Bills = ({ route }: any) => {
             onPress={confirmReturn}
             style={{ flex: 1 }}
           />
-
           <AppButton
             label="Cancel"
             variant="outline"
@@ -570,6 +593,55 @@ const Bills = ({ route }: any) => {
               setReturnQty('');
               setReturnError('');
             }}
+            style={{ flex: 1 }}
+          />
+        </View>
+      </ModalOverlay>
+
+      <ModalOverlay visible={!!voidingBill}>
+        <Text style={styles.modalTitle}>Void Bill</Text>
+        <Text style={styles.modalMeta}>
+          Requires a manager or owner to approve. Stock will be restored, but
+          the original bill stays on record permanently.
+        </Text>
+
+        <SectionLabel>Approved by</SectionLabel>
+        <PillGroup
+          options={managementStaff.map(p => ({ key: p.name, label: p.name }))}
+          selectedKey={voidApprover}
+          onSelect={setVoidApprover}
+        />
+
+        {!!voidApprover && (
+          <AppInput
+            label={`${voidApprover}'s password`}
+            value={voidPasswordInput}
+            onChangeText={setVoidPasswordInput}
+            secureTextEntry
+          />
+        )}
+
+        <AppInput
+          label="Reason for voiding"
+          value={voidReason}
+          onChangeText={setVoidReason}
+          placeholder="e.g. wrong item entered by mistake"
+        />
+
+        {!!voidError && <Text style={styles.error}>{voidError}</Text>}
+
+        <View style={styles.modalButtonRow}>
+          <AppButton
+            label="Cancel"
+            variant="outline"
+            onPress={() => setVoidingBill(null)}
+            style={{ flex: 1 }}
+          />
+          <AppButton
+            label="Confirm Void"
+            variant="danger"
+            loading={voidSaving}
+            onPress={confirmVoid}
             style={{ flex: 1 }}
           />
         </View>
@@ -901,6 +973,20 @@ const styles = StyleSheet.create({
 
   bottomSpace: {
     height: 40,
+  },
+  voidLink: {
+    color: '#9C3654',
+    fontSize: 11,
+    marginTop: 8,
+    textDecorationLine: 'underline',
+    textAlign: 'right',
+  },
+  voidedCard: { opacity: 0.6, borderColor: COLORS.danger },
+  voidedBadge: {
+    color: COLORS.danger,
+    fontWeight: '800',
+    fontSize: 11,
+    marginBottom: 6,
   },
 });
 

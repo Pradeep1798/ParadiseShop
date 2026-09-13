@@ -37,30 +37,39 @@ const CloseBill = ({ route, navigation }: any) => {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
-    const closing = await getDailyClosing(shopId, today);
-    setAlreadyClosed(closing);
+    try {
+      setLoadError('');
+      const closing = await getDailyClosing(shopId, today);
+      setAlreadyClosed(closing);
 
-    const [allTx, expenses] = await Promise.all([
-      getTransactionsForDate(shopId, today),
-      getExpensesByDateRange(shopId, today, today),
-    ]);
+      const [allTx, expenses] = await Promise.all([
+        getTransactionsForDate(shopId, today),
+        getExpensesByDateRange(shopId, today, today),
+      ]);
 
-    const sales = excludeVoided(allTx.filter(t => t.type === 'sale'));
-    const returns = allTx.filter(t => t.type === 'return');
+      const sales = excludeVoided(allTx.filter(t => t.type === 'sale'));
+      const returns = allTx.filter(t => t.type === 'return');
 
-    const rawTotals = computeCashGpayTotals(sales);
-    const { cash, gpay } = applyReturnsToTotals(rawTotals, sales, returns);
-    const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0);
+      const rawTotals = computeCashGpayTotals(sales);
+      const { cash, gpay } = applyReturnsToTotals(rawTotals, sales, returns);
+      const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0);
 
-    setSummary({
-      sale: cash + gpay,
-      cash,
-      gpay,
-      expenseTotal,
-      calculatedHand: cash - expenseTotal,
-    });
+      setSummary({
+        sale: cash + gpay,
+        cash,
+        gpay,
+        expenseTotal,
+        calculatedHand: cash - expenseTotal,
+      });
+    } catch (e) {
+      console.log('CloseBill load failed:', e);
+      setLoadError(
+        "Could not load today's data — check your connection and try again.",
+      );
+    }
   }, [shopId, today]);
 
   const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
@@ -96,6 +105,16 @@ const CloseBill = ({ route, navigation }: any) => {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.textMuted} />
+      </View>
+    );
+  }
+
+  if (!summary) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>
+          {loadError || 'Something went wrong loading this screen.'}
+        </Text>
       </View>
     );
   }

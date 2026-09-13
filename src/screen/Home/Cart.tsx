@@ -29,21 +29,14 @@ interface CartItem {
 
 interface Props {
   cart: CartItem[];
-
   subtotal: number;
   total: number;
-
   showMoreOptions: boolean;
   onToggleOptions: () => void;
-
   discount: string;
-  excess: string;
   note: string;
-
   onDiscountChange: (value: string) => void;
-  onExcessChange: (value: string) => void;
   onNoteChange: (value: string) => void;
-
   onRemove: (index: number) => void;
 }
 
@@ -54,10 +47,8 @@ const CartSummary = ({
   showMoreOptions,
   onToggleOptions,
   discount,
-  excess,
   note,
   onDiscountChange,
-  onExcessChange,
   onNoteChange,
   onRemove,
 }: Props) => {
@@ -67,13 +58,10 @@ const CartSummary = ({
 
   return (
     <View style={styles.container}>
-
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>
-            Current Bill
-          </Text>
+          <Text style={styles.title}>Current Bill</Text>
 
           <Text style={styles.itemCount}>
             {cart.length} item{cart.length > 1 ? 's' : ''}
@@ -81,43 +69,30 @@ const CartSummary = ({
         </View>
 
         <View style={styles.billIcon}>
-          <Text style={styles.billIconText}>
-            ₹
-          </Text>
+          <Text style={styles.billIconText}>₹</Text>
         </View>
       </View>
 
       {/* Cart Items */}
       <View style={styles.items}>
         {cart.map((item, index) => (
-          <View
-            key={`${item.subVarietyName}-${index}`}
-            style={styles.itemRow}
-          >
+          <View key={`${item.subVarietyName}-${index}`} style={styles.itemRow}>
             {/* Left */}
             <View style={styles.itemLeft}>
-
               {/* Item Number */}
               <View style={styles.itemNumber}>
-                <Text style={styles.itemNumberText}>
-                  {index + 1}
-                </Text>
+                <Text style={styles.itemNumberText}>{index + 1}</Text>
               </View>
 
               {/* Product Details */}
               <View style={styles.itemDetails}>
-                <Text
-                  style={styles.itemName}
-                  numberOfLines={1}
-                >
+                <Text style={styles.itemName} numberOfLines={1}>
                   {item.subVarietyName}
                 </Text>
 
                 <Text style={styles.quantity}>
                   {item.pieceInfo ||
-                    `${item.quantity}${getQuantityUnitLabel(
-                      item.unit,
-                    )}`}
+                    `${item.quantity}${getQuantityUnitLabel(item.unit)}`}
                 </Text>
               </View>
             </View>
@@ -133,9 +108,7 @@ const CartSummary = ({
                 onPress={() => onRemove(index)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.removeText}>
-                  ×
-                </Text>
+                <Text style={styles.removeText}>×</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -144,13 +117,9 @@ const CartSummary = ({
 
       {/* Subtotal */}
       <View style={styles.subtotalRow}>
-        <Text style={styles.subtotalLabel}>
-          Subtotal
-        </Text>
+        <Text style={styles.subtotalLabel}>Subtotal</Text>
 
-        <Text style={styles.subtotalValue}>
-          {formatCurrency(subtotal)}
-        </Text>
+        <Text style={styles.subtotalValue}>{formatCurrency(subtotal)}</Text>
       </View>
 
       {/* More Options */}
@@ -160,7 +129,6 @@ const CartSummary = ({
         activeOpacity={0.7}
       >
         <View style={styles.moreOptionsLeft}>
-
           <View style={styles.optionsIcon}>
             <Text style={styles.optionsIconText}>
               {showMoreOptions ? '−' : '+'}
@@ -169,9 +137,7 @@ const CartSummary = ({
 
           <View>
             <Text style={styles.moreOptionsTitle}>
-              {showMoreOptions
-                ? 'Hide options'
-                : 'More options'}
+              {showMoreOptions ? 'Hide options' : 'More options'}
             </Text>
 
             {!showMoreOptions && (
@@ -182,19 +148,14 @@ const CartSummary = ({
           </View>
         </View>
 
-        <Text style={styles.optionsArrow}>
-          {showMoreOptions ? '⌃' : '⌄'}
-        </Text>
+        <Text style={styles.optionsArrow}>{showMoreOptions ? '⌃' : '⌄'}</Text>
       </TouchableOpacity>
 
       {/* More Options Form */}
       {showMoreOptions && (
         <View style={styles.optionsBox}>
-
           {/* Discount */}
-          <Text style={styles.optionLabel}>
-            Discount
-          </Text>
+          <Text style={styles.optionLabel}>Discount</Text>
 
           <TextInput
             style={styles.optionInput}
@@ -204,31 +165,11 @@ const CartSummary = ({
             placeholder="₹ 0"
             placeholderTextColor={COLORS.textFaint}
           />
-
-          {/* Excess */}
-          <Text style={styles.optionLabel}>
-            Excess
-          </Text>
-
-          <TextInput
-            style={styles.optionInput}
-            value={excess}
-            onChangeText={onExcessChange}
-            keyboardType="decimal-pad"
-            placeholder="₹ 0"
-            placeholderTextColor={COLORS.textFaint}
-          />
-
           {/* Note */}
-          <Text style={styles.optionLabel}>
-            Note
-          </Text>
+          <Text style={styles.optionLabel}>Note</Text>
 
           <TextInput
-            style={[
-              styles.optionInput,
-              styles.noteInput,
-            ]}
+            style={[styles.optionInput, styles.noteInput]}
             value={note}
             onChangeText={onNoteChange}
             placeholder="Add a note (optional)"
@@ -241,20 +182,13 @@ const CartSummary = ({
       {/* Final Total */}
       <View style={styles.finalTotalBox}>
         <View>
-          <Text style={styles.finalTotalLabel}>
-            Final Total
-          </Text>
+          <Text style={styles.finalTotalLabel}>Final Total</Text>
 
-          <Text style={styles.finalTotalHint}>
-            Amount to collect
-          </Text>
+          <Text style={styles.finalTotalHint}>Amount to collect</Text>
         </View>
 
-        <Text style={styles.finalTotalValue}>
-          {formatCurrency(total)}
-        </Text>
+        <Text style={styles.finalTotalValue}>{formatCurrency(total)}</Text>
       </View>
-
     </View>
   );
 };

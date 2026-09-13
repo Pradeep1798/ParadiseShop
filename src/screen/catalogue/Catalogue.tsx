@@ -18,6 +18,10 @@ import {
   setDoc,
 } from '@react-native-firebase/firestore';
 import ScreenContainer from 'components/ScreenContainer';
+import AppButton from 'components/AppButton';
+import AppInput from 'components/AppInput';
+import ModalOverlay from 'components/ModalOverlay';
+import PillGroup from 'components/PillGroup';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -235,6 +239,7 @@ function ItemEditor({ initial, isNew, saving, error, onCancel, onSave }: any) {
   const [lowStockThreshold, setLowStockThreshold] = useState(
     String(initial.lowStockThreshold),
   );
+
   const [presetAmounts, setPresetAmounts] = useState(
     (initial.presetAmounts || []).join(', '),
   );
@@ -249,142 +254,137 @@ function ItemEditor({ initial, isNew, saving, error, onCancel, onSave }: any) {
       lowStockThreshold: Number(lowStockThreshold) || 0,
       presetAmounts: presetAmounts
         .split(',')
-        .map((s: any) => Number(s.trim()))
-        .filter((n: any) => !isNaN(n) && n > 0),
+        .map((s: string) => Number(s.trim()))
+        .filter((n: number) => !isNaN(n) && n > 0),
     });
   };
 
   return (
-    <View style={styles.overlayContainer} pointerEvents="box-none">
-      <View style={styles.modalBackdrop}>
-        <ScrollView style={styles.modalBox}>
-          <Text style={styles.modalTitle}>
-            {isNew ? 'Add Item' : 'Edit Item'}
-          </Text>
+    <ModalOverlay visible>
+      <Text style={styles.modalTitle}>{isNew ? 'Add Item' : 'Edit Item'}</Text>
 
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Eucalyptus - Pure"
-          />
+      <AppInput
+        label="Name"
+        value={name}
+        onChangeText={setName}
+        placeholder="e.g. Eucalyptus - Pure"
+        editable={!saving}
+        style={styles.catalogueInput}
+      />
 
-          <Text style={styles.label}>Unit</Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {['g', 'ml', 'pcs'].map(u => (
-              <TouchableOpacity
-                key={u}
-                style={[styles.unitBtn, unit === u && styles.unitBtnActive]}
-                onPress={() => setUnit(u)}
-              >
-                <Text
-                  style={
-                    unit === u ? styles.unitBtnTextActive : styles.unitBtnText
-                  }
-                >
-                  {u}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+      <Text style={styles.label}>Unit</Text>
 
-          <Text style={styles.label}>
-            Price per{' '}
-            {unit === 'ml' ? 'litre' : unit === 'pcs' ? 'piece' : 'kg'} (₹)
-          </Text>
-          <TextInput
-            style={styles.input}
-            value={pricePerKg}
-            onChangeText={setPricePerKg}
-            keyboardType="decimal-pad"
-          />
+      <PillGroup
+        options={[
+          { key: 'g', label: 'g' },
+          { key: 'ml', label: 'ml' },
+          { key: 'pcs', label: 'pcs' },
+        ]}
+        selectedKey={unit}
+        onSelect={setUnit}
+        equalWidth
+      />
 
-          <Text style={styles.label}>Current stock</Text>
-          <TextInput
-            style={styles.input}
-            value={stock}
-            onChangeText={setStock}
-            keyboardType="decimal-pad"
-          />
+      <AppInput
+        label={`Price per ${
+          unit === 'ml' ? 'litre' : unit === 'pcs' ? 'piece' : 'kg'
+        } (₹)`}
+        value={pricePerKg}
+        onChangeText={setPricePerKg}
+        keyboardType="decimal-pad"
+        editable={!saving}
+        style={styles.catalogueInput}
+      />
 
-          <Text style={styles.label}>Low stock alert below</Text>
-          <TextInput
-            style={styles.input}
-            value={lowStockThreshold}
-            onChangeText={setLowStockThreshold}
-            keyboardType="decimal-pad"
-          />
+      <AppInput
+        label="Current stock"
+        value={stock}
+        onChangeText={setStock}
+        keyboardType="decimal-pad"
+        editable={!saving}
+        style={styles.catalogueInput}
+      />
 
-          <Text style={styles.label}>
-            Preset amounts (comma separated, e.g. 100, 200, 250)
-          </Text>
-          <TextInput
-            style={styles.input}
-            value={presetAmounts}
-            onChangeText={setPresetAmounts}
-            placeholder="100, 200, 250"
-          />
+      <AppInput
+        label="Low stock alert below"
+        value={lowStockThreshold}
+        onChangeText={setLowStockThreshold}
+        keyboardType="decimal-pad"
+        editable={!saving}
+        style={styles.catalogueInput}
+      />
 
-          {!!error && <Text style={styles.error}>{error}</Text>}
+      <AppInput
+        label="Preset amounts (comma separated, e.g. 100, 200, 250)"
+        value={presetAmounts}
+        onChangeText={setPresetAmounts}
+        placeholder="100, 200, 250"
+        editable={!saving}
+        style={styles.catalogueInput}
+      />
 
-          <View style={styles.modalButtonRow}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={submit}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.confirmBtnText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+      {!!error && <Text style={styles.error}>{error}</Text>}
+
+      <View style={styles.modalButtonRow}>
+        <AppButton
+          label="Cancel"
+          variant="outline"
+          onPress={onCancel}
+          disabled={saving}
+          style={styles.modalActionButton}
+        />
+
+        <AppButton
+          label="Save"
+          variant="primary"
+          onPress={submit}
+          loading={saving}
+          disabled={saving}
+          style={styles.modalActionButton}
+        />
       </View>
-    </View>
+    </ModalOverlay>
   );
 }
 
 function CategoryEditor({ saving, error, onCancel, onSave }: any) {
   const [name, setName] = useState('');
+
   return (
-    <View style={styles.overlayContainer} pointerEvents="box-none">
-      <View style={styles.modalBackdrop}>
-        <View style={styles.modalBox}>
-          <Text style={styles.modalTitle}>New Category</Text>
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Spices"
-            autoFocus
-          />
-          {!!error && <Text style={styles.error}>{error}</Text>}
-          <View style={styles.modalButtonRow}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.confirmBtn}
-              onPress={() => onSave(name)}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.confirmBtnText}>Create</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+    <ModalOverlay visible>
+      <Text style={styles.modalTitle}>New Category</Text>
+
+      <AppInput
+        label="Name"
+        value={name}
+        onChangeText={setName}
+        placeholder="e.g. Spices"
+        autoFocus
+        editable={!saving}
+        style={styles.catalogueInput}
+      />
+
+      {!!error && <Text style={styles.error}>{error}</Text>}
+
+      <View style={styles.modalButtonRow}>
+        <AppButton
+          label="Cancel"
+          variant="outline"
+          onPress={onCancel}
+          disabled={saving}
+          style={styles.modalActionButton}
+        />
+
+        <AppButton
+          label="Create"
+          variant="primary"
+          onPress={() => onSave(name)}
+          loading={saving}
+          disabled={saving}
+          style={styles.modalActionButton}
+        />
       </View>
-    </View>
+    </ModalOverlay>
   );
 }
 
@@ -430,6 +430,20 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   categoryName: { fontSize: 15, fontWeight: '700', color: '#5C3620' },
+  catalogueInput: {
+    backgroundColor: '#FBF4EC',
+    borderColor: '#E2CFAF',
+  },
+
+  modalActionButton: {
+    flex: 1,
+  },
+
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
   chevron: { fontSize: 16, color: '#C17A3D' },
   itemRow: {
     flexDirection: 'row',
@@ -497,7 +511,6 @@ const styles = StyleSheet.create({
   unitBtnText: { color: '#2B160C', fontWeight: '500' },
   unitBtnTextActive: { color: '#fff', fontWeight: '600' },
   error: { color: '#9C3654', marginTop: 10 },
-  modalButtonRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
   cancelBtn: {
     flex: 1,
     paddingVertical: 12,

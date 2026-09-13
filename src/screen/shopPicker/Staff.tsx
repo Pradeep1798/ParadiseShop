@@ -34,6 +34,9 @@ const Staff = ({ route, navigation }: any) => {
   const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [checkingPassword, setCheckingPassword] = useState(false);
+  const [wantsToChangePassword, setWantsToChangePassword] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [newConfirmInput, setNewConfirmInput] = useState('');
 
   useEffect(() => {
     const loadNames = async () => {
@@ -97,9 +100,12 @@ const Staff = ({ route, navigation }: any) => {
     password?: string;
   }) => {
     setPasswordPrompt(person);
-    setIsCreatingPassword(!person.password); // no password saved yet -> create mode
+    setIsCreatingPassword(!person.password);
     setPasswordInput('');
     setConfirmPasswordInput('');
+    setNewPasswordInput('');
+    setNewConfirmInput('');
+    setWantsToChangePassword(false);
     setPasswordError('');
   };
 
@@ -143,6 +149,39 @@ const Staff = ({ route, navigation }: any) => {
     setCheckingPassword(false);
   };
 
+  const changePassword = async () => {
+    if (passwordInput !== passwordPrompt!.password) {
+      setPasswordError('Current password is incorrect');
+      return;
+    }
+    if (newPasswordInput.length < 4) {
+      setPasswordError('New password must be at least 4 characters');
+      return;
+    }
+    if (newPasswordInput !== newConfirmInput) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+    setCheckingPassword(true);
+    setPasswordError('');
+    try {
+      const db = getFirestore();
+      const updatedStaff = staffList.map(p =>
+        p.name === passwordPrompt!.name
+          ? { ...p, password: newPasswordInput }
+          : p,
+      );
+      await updateDoc(doc(db, 'shops', shopId), { staff: updatedStaff });
+      setStaffList(updatedStaff);
+      setPasswordPrompt(null);
+      await choose({ ...passwordPrompt!, password: newPasswordInput });
+    } catch (e) {
+      setPasswordError('Something went wrong, try again');
+    } finally {
+      setCheckingPassword(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{shopName}</Text>
@@ -169,13 +208,108 @@ const Staff = ({ route, navigation }: any) => {
           <View style={styles.modalBackdrop}>
             <View style={styles.modalBox}>
               <Text style={styles.modalTitle}>
-                {isCreatingPassword ? 'Create Your Password' : 'Enter Password'}
+                {isCreatingPassword
+                  ? 'Create Your Password'
+                  : wantsToChangePassword
+                  ? 'Change Password'
+                  : 'Enter Password'}
               </Text>
               <Text style={styles.modalMeta}>
                 {isCreatingPassword
                   ? `No password set for ${passwordPrompt.name} yet — create one now. You'll use it every time going forward.`
+                  : wantsToChangePassword
+                  ? `Enter your current password, then choose a new one.`
                   : `Enter ${passwordPrompt.name}'s password to continue`}
               </Text>
+
+              <TextInput
+                style={styles.input}
+                value={passwordInput}
+                onChangeText={setPasswordInput}
+                placeholder={
+                  wantsToChangePassword ? 'Current password' : 'Password'
+                }
+                secureTextEntry
+                autoFocus
+                keyboardType="number-pad"
+              />
+              {isCreatingPassword && (
+                <TextInput
+                  style={styles.input}
+                  value={confirmPasswordInput}
+                  onChangeText={setConfirmPasswordInput}
+                  placeholder="Confirm password"
+                  secureTextEntry
+                  keyboardType="number-pad"
+                />
+              )}
+              {wantsToChangePassword && (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    value={newPasswordInput}
+                    onChangeText={setNewPasswordInput}
+                    placeholder="New password"
+                    secureTextEntry
+                    keyboardType="number-pad"
+                  />
+                  <TextInput
+                    style={styles.input}
+                    value={newConfirmInput}
+                    onChangeText={setNewConfirmInput}
+                    placeholder="Confirm new password"
+                    secureTextEntry
+                    keyboardType="number-pad"
+                  />
+                </>
+              )}
+              {!!passwordError && (
+                <Text style={styles.error}>{passwordError}</Text>
+              )}
+
+              {!isCreatingPassword && !wantsToChangePassword && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setWantsToChangePassword(true);
+                    setPasswordError('');
+                  }}
+                >
+                  <Text style={styles.changePasswordLink}>
+                    Change password instead
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <View style={styles.modalButtonRow}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setPasswordPrompt(null)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={
+                    isCreatingPassword
+                      ? createPassword
+                      : wantsToChangePassword
+                      ? changePassword
+                      : confirmPassword
+                  }
+                  disabled={checkingPassword}
+                >
+                  {checkingPassword ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.confirmBtnText}>
+                      {isCreatingPassword
+                        ? 'Create'
+                        : wantsToChangePassword
+                        ? 'Update Password'
+                        : 'Confirm'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
 
               <TextInput
                 style={styles.input}
@@ -197,34 +331,6 @@ const Staff = ({ route, navigation }: any) => {
                   keyboardType="number-pad"
                 />
               )}
-
-              {!!passwordError && (
-                <Text style={styles.error}>{passwordError}</Text>
-              )}
-
-              <View style={styles.modalButtonRow}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setPasswordPrompt(null)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.confirmBtn}
-                  onPress={
-                    isCreatingPassword ? createPassword : confirmPassword
-                  }
-                  disabled={checkingPassword}
-                >
-                  {checkingPassword ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.confirmBtnText}>
-                      {isCreatingPassword ? 'Create' : 'Confirm'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
         </View>
@@ -279,6 +385,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     zIndex: 999,
     elevation: 999, // Android needs elevation too, zIndex alone isn't always enough
+  },
+  changePasswordLink: {
+    color: '#7A4A2B',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    marginTop: -4,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   modalBackdrop: {
     flex: 1,

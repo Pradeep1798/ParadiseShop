@@ -32,6 +32,7 @@ import Catalogue from 'screen/catalogue/Catalogue';
 import { SCREENS, TABSCREENS } from './RootStack';
 import { clearDeviceSession } from 'utils/HelperFn';
 import Attendance from 'screen/reports/Attendance';
+import Voids from 'screen/products/Void';
 
 const Drawer = createDrawerNavigator();
 
@@ -283,42 +284,57 @@ const CustomDrawerContent = (props: any) => {
             REPORTS & MANAGEMENT
         ================================================= */}
 
-        {canViewManagement && (
-          <>
-            <DrawerSection title="REPORTS & MANAGEMENT" />
+      {canViewManagement && (
+  <>
+    {/* ================= REPORTS ================= */}
 
-            <DrawerMenuItem
-              label="Daily Reports"
-              icon="bar-chart"
-              screen={TABSCREENS.DAILYREPORTS}
-              navigation={props.navigation}
-              state={props.state}
-            />
+    <DrawerSection title="REPORTS" />
 
-            <DrawerMenuItem
-              label="Sale Report"
-              icon="calendar-outline"
-              screen={TABSCREENS.WEEKLY_REPORT}
-              navigation={props.navigation}
-              state={props.state}
-            />
+    <DrawerMenuItem
+      label="Daily Reports"
+      icon="bar-chart-outline"
+      screen={TABSCREENS.DAILYREPORTS}
+      navigation={props.navigation}
+      state={props.state}
+    />
 
-            <DrawerMenuItem
-              label="Catalogue"
-              icon="images-outline"
-              screen={TABSCREENS.CATALOGUE}
-              navigation={props.navigation}
-              state={props.state}
-            />
-            <DrawerMenuItem
-              label="Leave List"
-              icon="people-outline"
-              screen={TABSCREENS.ATTENDANCE}
-              navigation={props.navigation}
-              state={props.state}
-            />
-          </>
-        )}
+    <DrawerMenuItem
+      label="Sale Report"
+      icon="stats-chart-outline"
+      screen={TABSCREENS.WEEKLY_REPORT}
+      navigation={props.navigation}
+      state={props.state}
+    />
+
+    {/* ================= MANAGEMENT ================= */}
+
+    <DrawerSection title="MANAGEMENT" />
+
+    <DrawerMenuItem
+      label="Catalogue"
+      icon="images-outline"
+      screen={TABSCREENS.CATALOGUE}
+      navigation={props.navigation}
+      state={props.state}
+    />
+
+    <DrawerMenuItem
+      label="Leave List"
+      icon="calendar-outline"
+      screen={TABSCREENS.ATTENDANCE}
+      navigation={props.navigation}
+      state={props.state}
+    />
+
+    <DrawerMenuItem
+      label="Deleted Bill"
+      icon="trash-outline"
+      screen={TABSCREENS.VOID}
+      navigation={props.navigation}
+      state={props.state}
+    />
+  </>
+)}
 
         {/* =================================================
             SWITCH SHOP
@@ -525,6 +541,11 @@ const DrawerNav = ({ route }: any) => {
             component={withParams(Attendance, params)}
             options={{ title: 'Leave List' }}
           />
+          <Drawer.Screen
+            name={TABSCREENS.VOID}
+            component={withParams(Voids, params)}
+            options={{ title: 'Deleted Bill' }}
+          />
         </>
       )}
     </Drawer.Navigator>
@@ -696,7 +717,7 @@ const styles = StyleSheet.create({
   ======================================================= */
 
   menuItem: {
-    height: 44,
+    height: 42,
 
     marginHorizontal: 13,
     marginVertical: 1,

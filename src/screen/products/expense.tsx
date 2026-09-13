@@ -6,58 +6,33 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  ScrollView,
-  RefreshControl,
 } from 'react-native';
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  where,
-} from '@react-native-firebase/firestore';
-import ScreenContainer from 'components/ScreenContainer';
 import { formatCurrency } from 'utils/HelperFn';
+import ScreenContainer from 'components/ScreenContainer';
+import Card from 'components/Card';
+import AppButton from 'components/AppButton';
+import AppInput from 'components/AppInput';
+import EmptyState from 'components/EmptyState';
+import { addExpense, getExpensesByDateRange } from 'services/Service';
+import { useFocusRefresh } from 'utils/hooks';
 
-const Expense = ({ route, navigation }: any) => {
+const Expense = ({ route }: any) => {
   const { shopId, staffName } = route.params;
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [payment, setPayment] = useState<'cash' | 'gpay'>('cash');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
   const [todaysExpenses, setTodaysExpenses] = useState<any[]>([]);
-  const [loadingList, setLoadingList] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const loadTodaysExpenses = useCallback(async () => {
-    const db = getFirestore();
-    const snap = await getDocs(
-      query(
-        collection(db, 'shops', shopId, 'expenses'),
-        where('date', '==', today),
-      ),
-    );
-    const list = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter((e: any) => e.date === today)
-      .sort((a: any, b: any) => b.timestamp - a.timestamp);
-    setTodaysExpenses(list);
+  const load = useCallback(async () => {
+    const list = await getExpensesByDateRange(shopId, today, today);
+    setTodaysExpenses(list.sort((a: any, b: any) => b.timestamp - a.timestamp));
   }, [shopId, today]);
 
-  React.useEffect(() => {
-    loadTodaysExpenses().finally(() => setLoadingList(false));
-  }, [loadTodaysExpenses]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadTodaysExpenses();
-    setRefreshing(false);
-  };
+  const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
 
   const submit = async () => {
     const amountNum = parseFloat(amount);
@@ -73,8 +48,7 @@ const Expense = ({ route, navigation }: any) => {
     setSaving(true);
     setError('');
     try {
-      const db = getFirestore();
-      await addDoc(collection(db, 'shops', shopId, 'expenses'), {
+      await addExpense(shopId, {
         date: today,
         timestamp: Date.now(),
         staffName,
@@ -85,7 +59,7 @@ const Expense = ({ route, navigation }: any) => {
 
       setAmount('');
       setDescription('');
-      await loadTodaysExpenses();
+      await load();
     } catch (e) {
       setError('Something went wrong, try again');
     } finally {
@@ -97,20 +71,15 @@ const Expense = ({ route, navigation }: any) => {
 
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      {/* <Text style={styles.title}>Expense</Text> */}
-
-      <Text style={styles.label}>Amount (₹)</Text>
-      <TextInput
-        style={styles.input}
+      <AppInput
+        label="Amount (₹)"
         value={amount}
         onChangeText={setAmount}
         keyboardType="decimal-pad"
         placeholder="e.g. 150"
       />
-
-      <Text style={styles.label}>What was this for?</Text>
-      <TextInput
-        style={styles.input}
+      <AppInput
+        label="What was this for?"
         value={description}
         onChangeText={setDescription}
         placeholder="e.g. foil, tea, auto fare"
@@ -148,27 +117,23 @@ const Expense = ({ route, navigation }: any) => {
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
-      <TouchableOpacity
-        style={styles.button}
+      <AppButton
+        label="Save expense"
         onPress={submit}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Save expense</Text>
-        )}
-      </TouchableOpacity>
+        loading={saving}
+        variant="danger"
+        style={{ marginTop: 24 }}
+      />
 
-      <View style={styles.listBox}>
+      <Card style={{ marginTop: 28 }}>
         <Text style={styles.listTitle}>
           Today's expenses ({todaysExpenses.length})
         </Text>
-        {loadingList && (
+        {loading && (
           <ActivityIndicator style={{ marginTop: 10 }} color="#7A4A2B" />
         )}
-        {!loadingList && todaysExpenses.length === 0 && (
-          <Text style={styles.empty}>No expenses logged today yet.</Text>
+        {!loading && todaysExpenses.length === 0 && (
+          <EmptyState text="No expenses logged today yet." />
         )}
         {todaysExpenses.map(e => (
           <View key={e.id} style={styles.listRow}>
@@ -189,7 +154,7 @@ const Expense = ({ route, navigation }: any) => {
             </Text>
           </View>
         )}
-      </View>
+      </Card>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>
@@ -197,32 +162,12 @@ const Expense = ({ route, navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FBF4EC',
-    padding: 24,
-    // paddingTop: 48,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2B160C',
-    marginBottom: 20,
-  },
   label: {
     fontSize: 12,
     fontWeight: '600',
     color: '#7A4A2B',
     marginTop: 16,
     marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
   },
   presetRow: { flexDirection: 'row', gap: 8 },
   paymentBtn: {
@@ -238,24 +183,7 @@ const styles = StyleSheet.create({
   pillText: { color: '#2B160C', fontWeight: '500' },
   pillTextActive: { color: '#fff', fontWeight: '600' },
   error: { color: '#9C3654', marginTop: 12 },
-  button: {
-    marginTop: 24,
-    backgroundColor: '#9C3654',
-    paddingVertical: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  listBox: {
-    marginTop: 28,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 12,
-    padding: 16,
-  },
   listTitle: { fontWeight: '700', color: '#2B160C', marginBottom: 8 },
-  empty: { color: '#7A4A2B', fontSize: 13 },
   listRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

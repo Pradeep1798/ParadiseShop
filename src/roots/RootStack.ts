@@ -31,6 +31,7 @@ export type RootBottomScreens = {
   Catalogue: any;
   CloseBill: any;
   Attendance: any;
+  Void: any;
 };
 
 export const TABSCREENS = {
@@ -47,6 +48,7 @@ export const TABSCREENS = {
   CATALOGUE: 'Catalogue',
   CLOSEBILLS: 'CloseBill',
   ATTENDANCE: 'Attendance',
+  VOID: 'Void',
 } as const;
 
 export type StackNavigation = NavigationProp<RootStackScreens>;
