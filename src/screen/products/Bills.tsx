@@ -539,11 +539,11 @@ const { shopId, staffName, role } = route.params;
                 <Text style={styles.amount}>{formatCurrency(bill.total)}</Text>
               </View>
 
-          {!isVoided && canRequestVoid && (
-  <TouchableOpacity onPress={() => openVoid(bill)}>
-    <Text style={styles.voidLink}>Void this bill</Text>
-  </TouchableOpacity>
-)}
+              {!isVoided && canRequestVoid && (
+                <TouchableOpacity onPress={() => openVoid(bill)}>
+                  <Text style={styles.voidLink}>Delete this bill</Text>
+                </TouchableOpacity>
+              )}
             </Card>
           );
         })}

@@ -311,16 +311,6 @@ const Staff = ({ route, navigation }: any) => {
                 </TouchableOpacity>
               </View>
 
-              <TextInput
-                style={styles.input}
-                value={passwordInput}
-                onChangeText={setPasswordInput}
-                placeholder="Password"
-                secureTextEntry
-                autoFocus
-                keyboardType="number-pad"
-              />
-
               {isCreatingPassword && (
                 <TextInput
                   style={styles.input}
