@@ -21,7 +21,6 @@ import {
 } from 'utils/SalesCalculation';
 import { getStockUnitLabel, computeStockDelta } from 'utils/HelperFn';
 import { formatCurrency } from 'utils/HelperFn';
-import { notifyWeeklyReportReady } from 'utils/notification';
 import AppButton from 'components/AppButton';
 import Card from 'components/Card';
 import EmptyState from 'components/EmptyState';
@@ -251,7 +250,6 @@ const WeeklyReport = ({ route }: any) => {
         JSON.stringify(updatedHistory),
       );
 
-      await notifyWeeklyReportReady(shopName);
       await Share.open({
         url: `file://${pdf.filePath}`,
         type: 'application/pdf',

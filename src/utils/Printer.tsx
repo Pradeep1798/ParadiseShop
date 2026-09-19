@@ -30,8 +30,13 @@ export async function getSavedPrinter() {
 // Pads two strings to line up as left/right columns on a fixed-width receipt line.
 // width=32 fits a standard 58mm printer's character width; use 48 for 80mm printers.
 function padColumns(left: string, right: string, width = 32) {
-  const space = Math.max(1, width - left.length - right.length);
-  return left + ' '.repeat(space) + right + '\n';
+  const availableLeft = Math.max(1, width - right.length - 1);
+  const trimmedLeft =
+    left.length > availableLeft
+      ? `${left.slice(0, Math.max(1, availableLeft - 3))}...`
+      : left;
+  const space = Math.max(1, width - trimmedLeft.length - right.length);
+  return trimmedLeft + ' '.repeat(space) + right + '\n';
 }
 
 export async function printReceipt({
@@ -76,5 +81,9 @@ export async function printReceipt({
   receipt += `Served by: ${staffName}\n`;
   receipt += '\nThank you, visit again!\n\n\n';
 
-  BLEPrinter.printBill(receipt, { beep: true, cut: true, encoding: 'UTF-8' });
+  BLEPrinter.printBill(receipt, {
+    beep: true,
+    cut: true,
+    encoding: 'UTF-8',
+  });
 }

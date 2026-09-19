@@ -8,6 +8,7 @@ import {
   FlatList,
 } from 'react-native';
 import { connectPrinter, scanPrinters } from 'utils/Printer';
+import { COLORS, RADIUS, SPACING } from 'theme/Theme';
 
 const PrinterSetup = () => {
   const [devices, setDevices] = useState<any[]>([]);
@@ -70,6 +71,14 @@ const PrinterSetup = () => {
       <FlatList
         data={devices}
         keyExtractor={item => item.inner_mac_address}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          !scanning ? (
+            <Text style={styles.emptyText}>
+              No paired printers found. Turn on the printer and scan again.
+            </Text>
+          ) : null
+        }
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.deviceCard}
@@ -80,7 +89,7 @@ const PrinterSetup = () => {
               {item.device_name || 'Unknown device'}
             </Text>
             {connecting === item.inner_mac_address ? (
-              <ActivityIndicator color="#C17A3D" />
+              <ActivityIndicator color={COLORS.caramel} />
             ) : (
               <Text style={styles.deviceAddress}>{item.inner_mac_address}</Text>
             )}
@@ -94,34 +103,46 @@ const PrinterSetup = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF4EC',
+    backgroundColor: COLORS.cream,
     padding: 24,
     paddingTop: 48,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#2B160C' },
-  subtitle: { fontSize: 13, color: '#7A4A2B', marginTop: 4, marginBottom: 20 },
-  connected: { color: '#5C7D57', fontWeight: '600', marginBottom: 12 },
-  error: { color: '#9C3654', marginBottom: 12 },
+  title: { fontSize: 22, fontWeight: '700', color: COLORS.cacaoDark },
+  subtitle: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  connected: { color: COLORS.success, fontWeight: '600', marginBottom: 12 },
+  error: { color: COLORS.danger, marginBottom: 12 },
   button: {
-    backgroundColor: '#5C3620',
+    backgroundColor: COLORS.cacao,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
   },
-  buttonText: { color: '#fff', fontWeight: '700' },
+  buttonText: { color: COLORS.white, fontWeight: '700' },
+  listContent: { paddingTop: SPACING.lg, paddingBottom: SPACING.lg },
+  emptyText: {
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xl,
+  },
   deviceCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.panel,
     borderWidth: 1,
-    borderColor: '#E2CFAF',
-    borderRadius: 10,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
     padding: 14,
     marginBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  deviceName: { fontSize: 14, fontWeight: '600', color: '#2B160C' },
-  deviceAddress: { fontSize: 11, color: '#9C8768' },
+  deviceName: { fontSize: 14, fontWeight: '600', color: COLORS.cacaoDark },
+  deviceAddress: { fontSize: 11, color: COLORS.textFaint },
 });
 
 export default PrinterSetup;
