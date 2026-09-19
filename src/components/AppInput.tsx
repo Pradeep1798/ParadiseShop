@@ -14,8 +14,21 @@ const AppInput = ({ label, style, ...props }: Props) => (
 );
 
 const styles = StyleSheet.create({
-  label: { fontSize: FONT_SIZE.label, fontWeight: '600', color: COLORS.textMuted, marginBottom: SPACING.sm },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, padding: SPACING.md, fontSize: 15, color: COLORS.cacaoDark },
+  label: {
+    fontSize: FONT_SIZE.label,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    marginBottom: SPACING.sm,
+  },
+  input: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    fontSize: 15,
+    color: COLORS.cacaoDark,
+  },
 });
 
 export default AppInput;

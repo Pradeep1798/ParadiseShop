@@ -6,6 +6,7 @@ import {
   ImageBackground,
   Pressable,
   StyleSheet,
+  StatusBar,
 } from 'react-native';
 
 import {
@@ -28,40 +29,13 @@ import PriceList from 'screen/priceList/PriceList';
 import Notifications from 'screen/notification/notications';
 import CloseBill from 'screen/Bills/CloseBill';
 import Catalogue from 'screen/catalogue/Catalogue';
-
 import { SCREENS, TABSCREENS } from './RootStack';
 import { clearDeviceSession } from 'utils/HelperFn';
 import Attendance from 'screen/reports/Attendance';
 import Voids from 'screen/Bills/Void';
+import { COLORS } from 'theme/Theme';
 
 const Drawer = createDrawerNavigator();
-
-/* =========================================================
-   COLORS
-========================================================= */
-
-const COLORS = {
-  chocolate: '#3A1708',
-  chocolateDark: '#260C03',
-
-  gold: '#C47A26',
-  goldLight: '#E5A84F',
-
-  cream: '#FFF9F0',
-  creamActive: '#F4E1C8',
-
-  text: '#191411',
-  chocolateText: '#65361F',
-
-  section: '#6B3820',
-
-  arrow: '#B96D27',
-
-  border: '#E3CDB6',
-
-  switchBackground: '#FBE7EC',
-  switchText: '#C21858',
-};
 
 /* =========================================================
    WITH PARAMS
@@ -113,7 +87,7 @@ const DrawerMenuItem = ({
       {/* ICON */}
 
       <View style={styles.iconContainer}>
-        <Ionicons name={icon} size={25} color={COLORS.chocolateText} />
+        <Ionicons name={icon} size={25} color={COLORS.cacao} />
       </View>
 
       {/* LABEL */}
@@ -124,7 +98,7 @@ const DrawerMenuItem = ({
 
       {/* ARROW */}
 
-      <Ionicons name="chevron-forward" size={20} color={COLORS.arrow} />
+      <Ionicons name="chevron-forward" size={20} color={COLORS.caramel} />
     </Pressable>
   );
 };
@@ -284,57 +258,57 @@ const CustomDrawerContent = (props: any) => {
             REPORTS & MANAGEMENT
         ================================================= */}
 
-      {canViewManagement && (
-  <>
-    {/* ================= REPORTS ================= */}
+        {canViewManagement && (
+          <>
+            {/* ================= REPORTS ================= */}
 
-    <DrawerSection title="REPORTS" />
+            <DrawerSection title="REPORTS" />
 
-    <DrawerMenuItem
-      label="Daily Reports"
-      icon="bar-chart-outline"
-      screen={TABSCREENS.DAILYREPORTS}
-      navigation={props.navigation}
-      state={props.state}
-    />
+            <DrawerMenuItem
+              label="Daily Reports"
+              icon="bar-chart-outline"
+              screen={TABSCREENS.DAILYREPORTS}
+              navigation={props.navigation}
+              state={props.state}
+            />
 
-    <DrawerMenuItem
-      label="Sale Report"
-      icon="stats-chart-outline"
-      screen={TABSCREENS.WEEKLY_REPORT}
-      navigation={props.navigation}
-      state={props.state}
-    />
+            <DrawerMenuItem
+              label="Sale Report"
+              icon="stats-chart-outline"
+              screen={TABSCREENS.WEEKLY_REPORT}
+              navigation={props.navigation}
+              state={props.state}
+            />
 
-    {/* ================= MANAGEMENT ================= */}
+            {/* ================= MANAGEMENT ================= */}
 
-    <DrawerSection title="MANAGEMENT" />
+            <DrawerSection title="MANAGEMENT" />
 
-    <DrawerMenuItem
-      label="Catalogue"
-      icon="images-outline"
-      screen={TABSCREENS.CATALOGUE}
-      navigation={props.navigation}
-      state={props.state}
-    />
+            <DrawerMenuItem
+              label="Catalogue"
+              icon="images-outline"
+              screen={TABSCREENS.CATALOGUE}
+              navigation={props.navigation}
+              state={props.state}
+            />
 
-    <DrawerMenuItem
-      label="Leave List"
-      icon="calendar-outline"
-      screen={TABSCREENS.ATTENDANCE}
-      navigation={props.navigation}
-      state={props.state}
-    />
+            <DrawerMenuItem
+              label="Leave List"
+              icon="calendar-outline"
+              screen={TABSCREENS.ATTENDANCE}
+              navigation={props.navigation}
+              state={props.state}
+            />
 
-    <DrawerMenuItem
-      label="Deleted Bill"
-      icon="trash-outline"
-      screen={TABSCREENS.VOID}
-      navigation={props.navigation}
-      state={props.state}
-    />
-  </>
-)}
+            <DrawerMenuItem
+              label="Deleted Bill"
+              icon="trash-outline"
+              screen={TABSCREENS.VOID}
+              navigation={props.navigation}
+              state={props.state}
+            />
+          </>
+        )}
 
         {/* =================================================
             SWITCH SHOP
@@ -350,20 +324,12 @@ const CustomDrawerContent = (props: any) => {
           ]}
         >
           <View style={styles.switchIconContainer}>
-            <Ionicons
-              name="swap-horizontal"
-              size={27}
-              color={COLORS.switchText}
-            />
+            <Ionicons name="swap-horizontal" size={27} color={COLORS.danger} />
           </View>
 
           <Text style={styles.switchShopText}>Switch Shop</Text>
 
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={COLORS.switchText}
-          />
+          <Ionicons name="chevron-forward" size={20} color={COLORS.danger} />
         </Pressable>
       </DrawerContentScrollView>
 
@@ -373,7 +339,11 @@ const CustomDrawerContent = (props: any) => {
 
       <View style={styles.footer}>
         <View style={styles.footerIcon}>
-          <Ionicons name="storefront-outline" size={29} color={COLORS.gold} />
+          <Ionicons
+            name="storefront-outline"
+            size={29}
+            color={COLORS.caramel}
+          />
         </View>
 
         <View style={styles.footerText}>
@@ -397,158 +367,166 @@ const DrawerNav = ({ route }: any) => {
     params.role === 'owner' || params.role === 'manager';
 
   return (
-    <Drawer.Navigator
-      drawerContent={props => (
-        <CustomDrawerContent {...props} params={params} />
-      )}
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: COLORS.chocolate,
-        },
-
-        headerTintColor: COLORS.cream,
-
-        headerTitleStyle: {
-          fontWeight: '700',
-        },
-
-        headerShadowVisible: false,
-
-        /* ===============================================
-           COMPACT DRAWER
-        =============================================== */
-
-        drawerStyle: {
-          width: 300,
-          backgroundColor: COLORS.cream,
-        },
-
-        drawerType: 'front',
-
-        overlayColor: 'rgba(30, 10, 4, 0.62)',
-      }}
-    >
-      {/* HOME */}
-
-      <Drawer.Screen
-        name={TABSCREENS.HOME}
-        component={withParams(Home, params)}
-        options={{
-          title: 'Home',
-        }}
+    <>
+      <StatusBar
+        backgroundColor={COLORS.cacaoDark}
+        barStyle="light-content"
+        translucent={false}
       />
 
-      {/* ALERTS */}
+      <Drawer.Navigator
+        drawerContent={props => (
+          <CustomDrawerContent {...props} params={params} />
+        )}
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: COLORS.cacaoDark,
+          },
 
-      <Drawer.Screen
-        name={TABSCREENS.NOTIFY}
-        component={withParams(Notifications, params)}
-        options={{
-          title: 'Alerts',
+          headerTintColor: COLORS.cream,
+
+          headerTitleStyle: {
+            fontWeight: '700',
+          },
+
+          headerShadowVisible: false,
+
+          /* ===============================================
+             COMPACT DRAWER
+          =============================================== */
+
+          drawerStyle: {
+            width: 300,
+            backgroundColor: COLORS.panel,
+          },
+
+          drawerType: 'front',
+
+          overlayColor: 'rgba(30, 10, 4, 0.62)',
         }}
-      />
+      >
+        {/* HOME */}
 
-      {/* STOCK */}
+        <Drawer.Screen
+          name={TABSCREENS.HOME}
+          component={withParams(Home, params)}
+          options={{
+            title: 'Home',
+          }}
+        />
 
-      <Drawer.Screen
-        name={TABSCREENS.STOCK_IN}
-        component={withParams(Stock, params)}
-        options={{
-          title: 'Stock In',
-        }}
-      />
+        {/* ALERTS */}
 
-      {/* NEEDS */}
+        <Drawer.Screen
+          name={TABSCREENS.NOTIFY}
+          component={withParams(Notifications, params)}
+          options={{
+            title: 'Alerts',
+          }}
+        />
 
-      <Drawer.Screen
-        name={TABSCREENS.NEEDS}
-        component={withParams(Needs, params)}
-        options={{
-          title: 'Needed Items',
-        }}
-      />
+        {/* STOCK */}
 
-      {/* PRICE LIST */}
+        <Drawer.Screen
+          name={TABSCREENS.STOCK_IN}
+          component={withParams(Stock, params)}
+          options={{
+            title: 'Stock In',
+          }}
+        />
 
-      <Drawer.Screen
-        name={TABSCREENS.PRICELIST}
-        component={withParams(PriceList, params)}
-        options={{
-          title: 'Price List',
-        }}
-      />
+        {/* NEEDS */}
 
-      {/* BILLS */}
+        <Drawer.Screen
+          name={TABSCREENS.NEEDS}
+          component={withParams(Needs, params)}
+          options={{
+            title: 'Needed Items',
+          }}
+        />
 
-      <Drawer.Screen
-        name={TABSCREENS.BILLS}
-        component={withParams(Bills, params)}
-        options={{
-          title: 'Bills',
-        }}
-      />
+        {/* PRICE LIST */}
 
-      {/* CLOSE BILL */}
+        <Drawer.Screen
+          name={TABSCREENS.PRICELIST}
+          component={withParams(PriceList, params)}
+          options={{
+            title: 'Price List',
+          }}
+        />
 
-      <Drawer.Screen
-        name={TABSCREENS.CLOSEBILLS}
-        component={withParams(CloseBill, params)}
-        options={{
-          title: 'Close Bill',
-        }}
-      />
+        {/* BILLS */}
 
-      {/* EXPENSE */}
+        <Drawer.Screen
+          name={TABSCREENS.BILLS}
+          component={withParams(Bills, params)}
+          options={{
+            title: 'Bills',
+          }}
+        />
 
-      <Drawer.Screen
-        name={TABSCREENS.EXPENSE}
-        component={withParams(Expense, params)}
-        options={{
-          title: 'Expense',
-        }}
-      />
+        {/* CLOSE BILL */}
 
-      {/* MANAGEMENT */}
+        <Drawer.Screen
+          name={TABSCREENS.CLOSEBILLS}
+          component={withParams(CloseBill, params)}
+          options={{
+            title: 'Close Bill',
+          }}
+        />
 
-      {canViewManagement && (
-        <>
-          <Drawer.Screen
-            name={TABSCREENS.DAILYREPORTS}
-            component={withParams(DailyReports, params)}
-            options={{
-              title: 'Daily Reports',
-            }}
-          />
+        {/* EXPENSE */}
 
-          <Drawer.Screen
-            name={TABSCREENS.WEEKLY_REPORT}
-            component={withParams(WeeklyReport, params)}
-            options={{
-              title: 'Sale Report',
-            }}
-          />
+        <Drawer.Screen
+          name={TABSCREENS.EXPENSE}
+          component={withParams(Expense, params)}
+          options={{
+            title: 'Expense',
+          }}
+        />
 
-          <Drawer.Screen
-            name={TABSCREENS.CATALOGUE}
-            component={withParams(Catalogue, params)}
-            options={{
-              title: 'Catalogue',
-            }}
-          />
+        {/* MANAGEMENT */}
 
-          <Drawer.Screen
-            name={TABSCREENS.ATTENDANCE}
-            component={withParams(Attendance, params)}
-            options={{ title: 'Leave List' }}
-          />
-          <Drawer.Screen
-            name={TABSCREENS.VOID}
-            component={withParams(Voids, params)}
-            options={{ title: 'Deleted Bill' }}
-          />
-        </>
-      )}
-    </Drawer.Navigator>
+        {canViewManagement && (
+          <>
+            <Drawer.Screen
+              name={TABSCREENS.DAILYREPORTS}
+              component={withParams(DailyReports, params)}
+              options={{
+                title: 'Daily Reports',
+              }}
+            />
+
+            <Drawer.Screen
+              name={TABSCREENS.WEEKLY_REPORT}
+              component={withParams(WeeklyReport, params)}
+              options={{
+                title: 'Sale Report',
+              }}
+            />
+
+            <Drawer.Screen
+              name={TABSCREENS.CATALOGUE}
+              component={withParams(Catalogue, params)}
+              options={{
+                title: 'Catalogue',
+              }}
+            />
+
+            <Drawer.Screen
+              name={TABSCREENS.ATTENDANCE}
+              component={withParams(Attendance, params)}
+              options={{ title: 'Leave List' }}
+            />
+            <Drawer.Screen
+              name={TABSCREENS.VOID}
+              component={withParams(Voids, params)}
+              options={{ title: 'Deleted Bill' }}
+            />
+          </>
+        )}
+      </Drawer.Navigator>
+    </>
   );
 };
 
@@ -576,7 +554,7 @@ const styles = StyleSheet.create({
     height: 275,
     width: '100%',
     overflow: 'hidden',
-    backgroundColor: COLORS.chocolate,
+    backgroundColor: COLORS.cacaoDark,
   },
 
   headerBackground: {
@@ -602,7 +580,7 @@ const styles = StyleSheet.create({
 
   staffName: {
     marginLeft: 10,
-    color: '#FFF8EE',
+    color: COLORS.white,
     fontSize: 17,
     fontFamily: 'serif',
     fontWeight: '500',
@@ -642,7 +620,7 @@ const styles = StyleSheet.create({
   },
 
   shopName: {
-    color: '#FFF8ED',
+    color: COLORS.white,
 
     fontSize: 20,
 
@@ -669,7 +647,7 @@ const styles = StyleSheet.create({
 
     marginTop: 1,
 
-    color: '#E59A38',
+    color: COLORS.caramel,
 
     fontSize: 12,
 
@@ -703,7 +681,7 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    color: COLORS.section,
+    color: COLORS.textMuted,
 
     fontSize: 11.5,
 
@@ -732,7 +710,7 @@ const styles = StyleSheet.create({
   },
 
   activeMenuItem: {
-    backgroundColor: COLORS.creamActive,
+    backgroundColor: COLORS.creamAlt,
   },
 
   pressedMenuItem: {
@@ -760,7 +738,7 @@ const styles = StyleSheet.create({
   menuLabel: {
     flex: 1,
 
-    color: COLORS.text,
+    color: COLORS.cacaoDark,
 
     fontSize: 17,
 
@@ -770,7 +748,7 @@ const styles = StyleSheet.create({
   },
 
   activeMenuLabel: {
-    color: COLORS.chocolateText,
+    color: COLORS.cacao,
 
     fontWeight: '600',
   },
@@ -798,7 +776,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
 
-    backgroundColor: COLORS.switchBackground,
+    backgroundColor: COLORS.dangerSoft,
   },
 
   switchIconContainer: {
@@ -814,7 +792,7 @@ const styles = StyleSheet.create({
   switchShopText: {
     flex: 1,
 
-    color: COLORS.switchText,
+    color: COLORS.danger,
 
     fontSize: 17,
 
@@ -858,7 +836,7 @@ const styles = StyleSheet.create({
   },
 
   footerShopName: {
-    color: COLORS.chocolateText,
+    color: COLORS.cacao,
 
     fontSize: 15,
 
@@ -868,7 +846,7 @@ const styles = StyleSheet.create({
   },
 
   footerCaption: {
-    color: '#AA704A',
+    color: COLORS.textMuted,
 
     fontSize: 10.5,
 

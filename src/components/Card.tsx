@@ -11,14 +11,14 @@ const Card = ({
 }) => <View style={[styles.card, style]}>{children}</View>;
 
 const styles = StyleSheet.create({
-    card: {
-    backgroundColor: '#FFFFFF',
+  card: {
+    backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
-    shadowColor: '#5C3620',
+    shadowColor: COLORS.cacao,
     shadowOffset: {
       width: 0,
       height: 2,

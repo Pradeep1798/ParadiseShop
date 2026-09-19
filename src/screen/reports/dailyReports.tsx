@@ -1,12 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  ActivityIndicator,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import StatRow from 'components/StatRow';
 import EmptyState from 'components/EmptyState';
 import { COLORS, SPACING, FONT_SIZE } from 'theme/Theme';
@@ -30,11 +23,14 @@ import ChocolateLoader from 'components/ChocolateLoader';
 const DailyReports = ({ route }: any) => {
   const { shopId } = route.params || {};
   const [rows, setRows] = useState<any[]>([]);
-  const [daysBack, setDaysBack] = useState(7);
+
+  const getMonthStart = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  };
 
   const load = useCallback(async () => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - daysBack);
+    const cutoff = getMonthStart();
     const cutoffStr = cutoff.toISOString().slice(0, 10);
 
     const [allTx, allExpenses, closingsByDate] = await Promise.all([
@@ -81,7 +77,7 @@ const DailyReports = ({ route }: any) => {
       });
 
     setRows(result);
-  }, [shopId, daysBack]);
+  }, [shopId]);
 
   const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
 
@@ -181,8 +177,16 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   subRowText: { fontSize: 12.5, color: COLORS.textMuted },
-  subRowValue: { fontSize: 12.5, fontWeight: '600', color: COLORS.danger },
-  divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 6 },
+  subRowValue: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: COLORS.danger,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 6,
+  },
   closingNoteText: {
     fontSize: 12,
     color: COLORS.textMuted,

@@ -38,7 +38,6 @@ export async function printReceipt({
   shopName,
   billItems,
   discount,
-  //   excess,
   total,
   paymentMethod,
   staffName,
@@ -47,7 +46,6 @@ export async function printReceipt({
   shopName: string;
   billItems: { name: string; qty: string; amount: number }[];
   discount: number;
-  //   excess: number;
   total: number;
   paymentMethod: string;
   staffName: string;
@@ -73,7 +71,6 @@ export async function printReceipt({
   receipt += '--------------------------------\n';
   if (discount > 0)
     receipt += padColumns('Discount', formatCurrencyPlain(discount));
-  //   if (excess > 0) receipt += padColumns('Excess', `+Rs.${excess.toFixed(2)}`);
   receipt += padColumns('TOTAL', formatCurrencyPlain(total));
   receipt += `\nPaid via: ${paymentMethod.toUpperCase()}\n`;
   receipt += `Served by: ${staffName}\n`;

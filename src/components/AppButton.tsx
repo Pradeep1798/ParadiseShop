@@ -20,7 +20,7 @@ const VARIANT_COLORS = {
 
 const AppButton = ({ label, onPress, loading, disabled, variant = 'primary', style }: Props) => {
   const bg = disabled ? COLORS.border : VARIANT_COLORS[variant];
-  const textColor = variant === 'outline' ? COLORS.cacao : '#fff';
+  const textColor = variant === 'outline' ? COLORS.cacao : COLORS.white;
   return (
     <TouchableOpacity style={[styles.button, { backgroundColor: bg }, style]} onPress={onPress} disabled={disabled || loading}>
       {loading ? <ActivityIndicator color={textColor} /> : <Text style={[styles.text, { color: textColor }]}>{label}</Text>}

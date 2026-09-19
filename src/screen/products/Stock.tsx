@@ -16,7 +16,7 @@ import {
 } from 'services/Service';
 
 import { useFocusRefresh } from 'utils/hooks';
-import { getStockUnitLabel } from 'utils/HelperFn';
+import { getStockUnitLabel, roundStock } from 'utils/HelperFn';
 import ScreenContainer from 'components/ScreenContainer';
 import { COLORS } from 'theme/Theme';
 
@@ -110,10 +110,11 @@ const Stock = ({ route, navigation }: any) => {
 
           if (index !== -1) {
             const currentStock = Number(updatedSubVarieties[index].stock || 0);
+            const nextStock = roundStock(currentStock + item.quantity);
 
             updatedSubVarieties[index] = {
               ...updatedSubVarieties[index],
-              stock: currentStock + item.quantity,
+              stock: nextStock,
             };
           }
         });

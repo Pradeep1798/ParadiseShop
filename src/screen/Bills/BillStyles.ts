@@ -21,6 +21,7 @@ export const BillStyles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+    paddingHorizontal: 2,
   },
 
   dateNav: {
@@ -106,7 +107,7 @@ export const BillStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 9,
+    paddingVertical: 8,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#F3E8DD',
@@ -115,16 +116,16 @@ export const BillStyles = StyleSheet.create({
   itemText: {
     flex: 1,
     paddingRight: 12,
-    fontSize: 13,
+    fontSize: 12.8,
     fontWeight: '600',
     color: COLORS.cacaoDark,
-    lineHeight: 19,
+    lineHeight: 18,
   },
 
   itemAmount: {
     minWidth: 75,
     textAlign: 'right',
-    fontSize: 13.5,
+    fontSize: 13.2,
     fontWeight: '700',
     color: COLORS.cacao,
   },
@@ -143,7 +144,7 @@ export const BillStyles = StyleSheet.create({
     fontSize: 11.5,
     color: '#806452',
     fontStyle: 'italic',
-    backgroundColor: '#FCF7F2',
+    backgroundColor: COLORS.panelSoft,
     paddingHorizontal: 9,
     paddingVertical: 7,
     borderRadius: 8,
@@ -155,8 +156,8 @@ export const BillStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#E8D8C7',
   },
@@ -182,6 +183,7 @@ export const BillStyles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: COLORS.caramel,
+    letterSpacing: 0.2,
   },
 
   paymentEditRow: {
@@ -198,11 +200,11 @@ export const BillStyles = StyleSheet.create({
   },
 
   badgeCash: {
-    backgroundColor: '#E8F0E5',
+    backgroundColor: COLORS.successBg,
   },
 
   badgeGpay: {
-    backgroundColor: '#E5EEF8',
+    backgroundColor: COLORS.gpayBg,
   },
 
   badgeText: {
@@ -225,7 +227,9 @@ export const BillStyles = StyleSheet.create({
   cardActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
   },
   printLink: {
     color: COLORS.cacao,
@@ -342,31 +346,31 @@ export const BillStyles = StyleSheet.create({
     marginBottom: 6,
   },
   voidButton: {
-  paddingHorizontal: 10,
-  paddingVertical: 6,
-  borderRadius: 7,
-  borderWidth: 1,
-  borderColor: '#E4B8C3',
-  backgroundColor: '#FFF7F8',
-},
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: '#E4B8C3',
+    backgroundColor: COLORS.dangerSoft,
+  },
 
-voidButtonText: {
-  fontSize: 11,
-  fontWeight: '600',
-  color: '#9C3654',
-},
+  voidButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9C3654',
+  },
   printButton: {
-  paddingHorizontal: 10,
-  paddingVertical: 6,
-  borderRadius: 7,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  backgroundColor: COLORS.white,
-},
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+  },
 
-printButtonText: {
-  fontSize: 11,
-  fontWeight: '600',
-  color: COLORS.cacao,
-},
+  printButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.cacao,
+  },
 });

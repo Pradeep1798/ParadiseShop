@@ -6,6 +6,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { COLORS } from 'theme/Theme';
 
 interface Props {
   children: React.ReactNode;
@@ -53,7 +54,7 @@ const ScreenContainer = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF4EC',
+    backgroundColor: COLORS.cream,
     padding: 18,
     paddingTop: 18,
   },

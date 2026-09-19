@@ -6,7 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { RADIUS, SPACING } from 'theme/Theme';
+import { COLORS, RADIUS, SPACING } from 'theme/Theme';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   },
 
   box: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
     padding: 20,
     maxHeight: '85%',

@@ -4,7 +4,7 @@ import { COLORS } from "theme/Theme";
 export const homeStyles = StyleSheet.create({
   homeScreen: {
     flex: 1,
-    backgroundColor: '#FBF4EC',
+    backgroundColor: COLORS.creamSoft,
   },
   center: {
     flex: 1,
@@ -14,8 +14,8 @@ export const homeStyles = StyleSheet.create({
   },
 
   container: {
-    paddingHorizontal: 8,
-    paddingTop: 2,
+    paddingHorizontal: 12,
+    paddingTop: 6,
     paddingBottom: 30,
   },
 
@@ -60,20 +60,27 @@ export const homeStyles = StyleSheet.create({
   },
 
   categoryChip: {
-    height: 40,
+    minHeight: 40,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 14,
     paddingHorizontal: 14,
+    paddingVertical: 8,
     marginRight: 7,
     marginBottom: 7,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#4C2B1D',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   categoryChipActive: {
     backgroundColor: COLORS.cacao,
     borderColor: COLORS.cacao,
+    shadowOpacity: 0.1,
   },
   categoryChipText: {
     color: COLORS.cacaoDark,
@@ -93,12 +100,17 @@ export const homeStyles = StyleSheet.create({
   },
 
   quickCard: {
-    width: 125,
-    minHeight: 88,
+    width: 134,
+    minHeight: 94,
     backgroundColor: COLORS.cacao,
-    borderRadius: 15,
-    padding: 11,
-    marginRight: 9,
+    borderRadius: 16,
+    padding: 12,
+    marginRight: 10,
+    shadowColor: '#3B1E0E',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 4,
   },
 
   quickIcon: {
@@ -162,19 +174,31 @@ export const homeStyles = StyleSheet.create({
 
   itemCard: {
     width: '48.5%',
-    minHeight: 112,
+    minHeight: 116,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 15,
+    borderRadius: 16,
     padding: 12,
-    marginBottom: 9,
+    marginBottom: 10,
     justifyContent: 'space-between',
+    shadowColor: '#4E2E1A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 7,
+    elevation: 2,
   },
 
   itemCardActive: {
     backgroundColor: COLORS.cacao,
     borderColor: COLORS.cacao,
+    shadowOpacity: 0.12,
+    transform: [{ scale: 1.01 }],
+  },
+
+  itemCardLowStock: {
+    borderColor: '#F0C5A2',
+    backgroundColor: '#FFF8F4',
   },
 
   itemTop: {
@@ -256,6 +280,10 @@ export const homeStyles = StyleSheet.create({
     color: COLORS.white,
   },
 
+  stockValueLowStock: {
+    color: '#B65F2F',
+  },
+
   emptyBox: {
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -280,12 +308,17 @@ export const homeStyles = StyleSheet.create({
   /* SELL PANEL */
 
   sellPanel: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: COLORS.panel,
     borderWidth: 1,
     borderColor: '#DFC9B3',
-    borderRadius: 18,
-    padding: 15,
+    borderRadius: 20,
+    padding: 16,
     marginBottom: 20,
+    shadowColor: '#6E4730',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
 
   sellPanelHeader: {
@@ -311,7 +344,7 @@ export const homeStyles = StyleSheet.create({
   },
 
   sellStockBadge: {
-    backgroundColor: '#EDF4EA',
+    backgroundColor: COLORS.successSoft,
     borderRadius: 10,
     paddingVertical: 6,
     paddingHorizontal: 9,
@@ -340,7 +373,7 @@ export const homeStyles = StyleSheet.create({
   },
 
   presetBtn: {
-    backgroundColor: '#F5EADF',
+    backgroundColor: COLORS.panelMuted,
     borderWidth: 1,
     borderColor: '#E1CDB9',
     borderRadius: 10,
@@ -489,7 +522,7 @@ export const homeStyles = StyleSheet.create({
   /* AMOUNT */
 
   amountSummary: {
-    backgroundColor: '#F7EEE5',
+    backgroundColor: COLORS.panelAlt,
     borderRadius: 13,
     paddingHorizontal: 13,
     paddingVertical: 11,
@@ -561,13 +594,18 @@ export const homeStyles = StyleSheet.create({
   /* ADD BUTTON */
 
   addBtn: {
-    height: 52,
+    height: 54,
     backgroundColor: COLORS.success,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
+    shadowColor: '#2F6B3F',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
   },
 
   addBtnIcon: {
@@ -586,7 +624,7 @@ export const homeStyles = StyleSheet.create({
   /* PAYMENT */
 
   paymentSection: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: COLORS.panel,
     borderWidth: 1,
     borderColor: '#DFC9B3',
     borderRadius: 18,
@@ -608,7 +646,7 @@ export const homeStyles = StyleSheet.create({
   },
 
   splitBox: {
-    backgroundColor: '#F7EEE5',
+    backgroundColor: COLORS.panelAlt,
     borderRadius: 13,
     padding: 12,
     marginTop: 12,
@@ -654,13 +692,18 @@ export const homeStyles = StyleSheet.create({
   /* COMPLETE */
 
   completeButton: {
-    minHeight: 61,
+    minHeight: 62,
     backgroundColor: COLORS.caramel,
     borderRadius: 16,
     marginTop: 18,
     paddingHorizontal: 13,
     flexDirection: 'row',
     alignItems: 'center',
+    shadowColor: '#7B4D29',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
   },
 
   completeButtonDisabled: {

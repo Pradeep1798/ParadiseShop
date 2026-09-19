@@ -507,6 +507,7 @@ const Home = ({ route }: any) => {
                   const active = selectedSub?.id === sv.id;
 
                   const stock = Number(sv.stock || 0);
+                  const isLowStock = stock <= sv.lowStockThreshold;
 
                   const stockUnit = getStockUnitLabel(sv.unit);
 
@@ -516,6 +517,7 @@ const Home = ({ route }: any) => {
                       style={[
                         homeStyles.itemCard,
                         active && homeStyles.itemCardActive,
+                        !active && isLowStock && homeStyles.itemCardLowStock,
                       ]}
                       onPress={() => selectItem(selectedCategory, sv)}
                       activeOpacity={0.8}
@@ -568,6 +570,9 @@ const Home = ({ route }: any) => {
                           style={[
                             homeStyles.stockValue,
                             active && homeStyles.stockValueActive,
+                            !active &&
+                              isLowStock &&
+                              homeStyles.stockValueLowStock,
                           ]}
                         >
                           {stock.toFixed(2)} {stockUnit}
