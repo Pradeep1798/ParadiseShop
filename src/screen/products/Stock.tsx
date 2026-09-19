@@ -19,18 +19,37 @@ import { useFocusRefresh } from 'utils/hooks';
 import { getStockUnitLabel, roundStock } from 'utils/HelperFn';
 import ScreenContainer from 'components/ScreenContainer';
 import { COLORS } from 'theme/Theme';
+import { Category, SubVariety } from 'types/Domain';
 
-const Stock = ({ route, navigation }: any) => {
+interface StockCartItem {
+  categoryId: string;
+  categoryName: string;
+  subVarietyId: string;
+  subVarietyName: string;
+  quantity: number;
+  unit: string;
+  note: string;
+}
+
+const Stock = ({
+  route,
+  navigation,
+}: {
+  route: { params: { shopId: string; staffName: string } };
+  navigation: { navigate: (screen: string) => void };
+}) => {
   const { shopId, staffName } = route.params;
 
-  const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [selectedSub, setSelectedSub] = useState<any>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+    null,
+  );
+  const [selectedSub, setSelectedSub] = useState<SubVariety | null>(null);
 
   const [qty, setQty] = useState('');
   const [itemNote, setItemNote] = useState('');
 
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<StockCartItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -86,7 +105,7 @@ const Stock = ({ route, navigation }: any) => {
     setError('');
 
     try {
-      const grouped: Record<string, any[]> = {};
+      const grouped: Record<string, StockCartItem[]> = {};
 
       cart.forEach(item => {
         if (!grouped[item.categoryId]) {
@@ -105,7 +124,7 @@ const Stock = ({ route, navigation }: any) => {
 
         grouped[categoryId].forEach(item => {
           const index = updatedSubVarieties.findIndex(
-            (sub: any) => sub.id === item.subVarietyId,
+            (sub: SubVariety) => sub.id === item.subVarietyId,
           );
 
           if (index !== -1) {
@@ -300,7 +319,7 @@ const Stock = ({ route, navigation }: any) => {
 
             {getSubVarieties().length > 0 ? (
               <View style={styles.subGrid}>
-                {getSubVarieties().map((sub: any, index: number) => {
+                {getSubVarieties().map((sub: SubVariety, index: number) => {
                   const active = selectedSub?.id === sub.id;
 
                   const stock = Number(sub.stock || 0);

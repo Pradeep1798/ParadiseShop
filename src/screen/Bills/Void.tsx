@@ -6,10 +6,11 @@ import { formatCurrency } from 'utils/HelperFn';
 import ScreenContainer from 'components/ScreenContainer';
 import SectionLabel from 'components/SectionLabel';
 import { COLORS } from 'theme/Theme';
+import { VoidRecord } from 'types/Domain';
 
-const Voids = ({ route }: any) => {
+const Voids = ({ route }: { route: { params?: { shopId?: string } } }) => {
   const { shopId } = route.params || {};
-  const [voids, setVoids] = useState<any[]>([]);
+  const [voids, setVoids] = useState<VoidRecord[]>([]);
 
   const load = useCallback(async () => {
     setVoids(await getVoids(shopId));
@@ -18,12 +19,16 @@ const Voids = ({ route }: any) => {
   const { refreshing, onRefresh } = useFocusRefresh(load, [load]);
 
   const byRequester: Record<string, number> = {};
-  voids.forEach((v) => { byRequester[v.requestedBy] = (byRequester[v.requestedBy] || 0) + 1; });
+  voids.forEach(v => {
+    byRequester[v.requestedBy] = (byRequester[v.requestedBy] || 0) + 1;
+  });
 
   return (
     <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
       <Text style={styles.title}>Voided Bills</Text>
-      <Text style={styles.subtitle}>{voids.length} total — permanent record, nothing here is ever deleted</Text>
+      <Text style={styles.subtitle}>
+        {voids.length} total — permanent record, nothing here is ever deleted
+      </Text>
 
       {Object.keys(byRequester).length > 0 && (
         <View style={styles.summaryCard}>
@@ -37,15 +42,23 @@ const Voids = ({ route }: any) => {
         </View>
       )}
 
-      {voids.length === 0 && <Text style={styles.empty}>No bills have been voided.</Text>}
+      {voids.length === 0 && (
+        <Text style={styles.empty}>No bills have been voided.</Text>
+      )}
 
-      {voids.map((v) => (
+      {voids.map(v => (
         <View key={v.id} style={styles.card}>
-          <Text style={styles.itemsText}>{v.items.map((i: any) => `${i.name} (${i.qty}${i.unit})`).join(', ')}</Text>
+          <Text style={styles.itemsText}>
+            {v.items.map(i => `${i.name} (${i.qty}${i.unit})`).join(', ')}
+          </Text>
           <Text style={styles.amount}>{formatCurrency(v.originalAmount)}</Text>
-          <Text style={styles.metaText}>Requested by {v.requestedBy} · Approved by {v.approvedBy}</Text>
+          <Text style={styles.metaText}>
+            Requested by {v.requestedBy} · Approved by {v.approvedBy}
+          </Text>
           <Text style={styles.reasonText}>Reason: {v.reason}</Text>
-          <Text style={styles.dateText}>{new Date(v.timestamp).toLocaleString('en-IN')}</Text>
+          <Text style={styles.dateText}>
+            {new Date(v.timestamp).toLocaleString('en-IN')}
+          </Text>
         </View>
       ))}
       <View style={{ height: 40 }} />

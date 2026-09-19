@@ -16,21 +16,26 @@ import EmptyState from 'components/EmptyState';
 import { addExpense, getExpensesByDateRange } from 'services/Service';
 import { useFocusRefresh } from 'utils/hooks';
 import AnimatedAmount from 'components/AnimatedAmount';
+import { Expense as ExpenseRecord } from 'types/Domain';
 
-const Expense = ({ route }: any) => {
+const Expense = ({
+  route,
+}: {
+  route: { params: { shopId: string; staffName: string } };
+}) => {
   const { shopId, staffName } = route.params;
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [payment, setPayment] = useState<'cash' | 'gpay'>('cash');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [todaysExpenses, setTodaysExpenses] = useState<any[]>([]);
+  const [todaysExpenses, setTodaysExpenses] = useState<ExpenseRecord[]>([]);
 
   const today = new Date().toISOString().slice(0, 10);
 
   const load = useCallback(async () => {
     const list = await getExpensesByDateRange(shopId, today, today);
-    setTodaysExpenses(list.sort((a: any, b: any) => b.timestamp - a.timestamp));
+    setTodaysExpenses(list.sort((a, b) => b.timestamp - a.timestamp));
   }, [shopId, today]);
 
   const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);

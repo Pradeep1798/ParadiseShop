@@ -29,16 +29,21 @@ import {
   getExpensesByDateRange,
   getTransactionsByDateRange,
 } from 'services/Service';
+import { ReportHistoryEntry } from 'types/Domain';
 
 const HISTORY_KEY = 'weekly_report_history';
 
-const WeeklyReport = ({ route }: any) => {
+const WeeklyReport = ({
+  route,
+}: {
+  route: { params?: { shopId?: string; shopName?: string } };
+}) => {
   const { shopId, shopName } = route.params || {};
   const [reportMode, setReportMode] = useState<'weekly' | 'monthly'>('weekly');
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<ReportHistoryEntry[]>([]);
 
   const loadHistory = useCallback(async () => {
     const raw = await AsyncStorage.getItem(`${HISTORY_KEY}_${shopId}`);
@@ -254,14 +259,15 @@ const WeeklyReport = ({ route }: any) => {
         url: `file://${pdf.filePath}`,
         type: 'application/pdf',
       });
-    } catch (e: any) {
-      setError('Could not generate report: ' + (e.message || 'unknown error'));
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'unknown error';
+      setError('Could not generate report: ' + message);
     } finally {
       setGenerating(false);
     }
   };
 
-  const reopenReport = async (entry: any) => {
+  const reopenReport = async (entry: ReportHistoryEntry) => {
     try {
       await Share.open({
         url: `file://${entry.filePath}`,

@@ -15,7 +15,13 @@ import { COLORS } from 'theme/Theme';
 import AnimatedPressable from 'components/AnimatedPressable';
 import ChocolateLoader from 'components/ChocolateLoader';
 
-const ShopPicker = ({ navigation }: any) => {
+const ShopPicker = ({
+  navigation,
+}: {
+  navigation: {
+    navigate: (screen: string, params?: Record<string, string>) => void;
+  };
+}) => {
   const [shops, setShops] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -35,7 +41,11 @@ const ShopPicker = ({ navigation }: any) => {
       try {
         const db = getFirestore();
         const snap = await getDocs(collection(db, 'shops'));
-        setShops(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+        setShops(
+          snap.docs.map(
+            d => ({ id: d.id, ...d.data() } as { id: string; name: string }),
+          ),
+        );
       } catch (e) {
         setError('Could not load shops. Check your internet connection.');
       } finally {

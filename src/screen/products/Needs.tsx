@@ -18,6 +18,18 @@ import {
 import ScreenContainer from 'components/ScreenContainer';
 import AnimatedPressable from 'components/AnimatedPressable';
 
+interface NeededItem {
+  id: string;
+  header: string;
+  itemName: string;
+  note?: string | null;
+  addedBy: string;
+  timestamp: number;
+  fulfilled: boolean;
+  fulfilledBy?: string | null;
+  fulfilledAt?: number | null;
+}
+
 const formatDate = (timestamp: number) => {
   const date = new Date(timestamp);
   const today = new Date();
@@ -36,7 +48,11 @@ const formatDate = (timestamp: number) => {
   });
 };
 
-const Needs = ({ route }: any) => {
+const Needs = ({
+  route,
+}: {
+  route: { params: { shopId: string; staffName: string } };
+}) => {
   const { shopId, staffName } = route.params;
 
   const [itemName, setItemName] = useState('');
@@ -44,7 +60,7 @@ const Needs = ({ route }: any) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [header, setHeader] = useState('');
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<NeededItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showFulfilled, setShowFulfilled] = useState(false);
@@ -55,8 +71,8 @@ const Needs = ({ route }: any) => {
     const snap = await getDocs(collection(db, 'shops', shopId, 'neededItems'));
 
     const list = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a: any, b: any) => b.timestamp - a.timestamp);
+      .map(d => ({ id: d.id, ...d.data() } as NeededItem))
+      .sort((a, b) => b.timestamp - a.timestamp);
 
     setItems(list);
   }, [shopId]);
@@ -104,7 +120,7 @@ const Needs = ({ route }: any) => {
     }
   };
 
-  const toggleFulfilled = async (item: any) => {
+  const toggleFulfilled = async (item: NeededItem) => {
     const db = getFirestore();
 
     await updateDoc(doc(db, 'shops', shopId, 'neededItems', item.id), {
@@ -116,8 +132,8 @@ const Needs = ({ route }: any) => {
     await loadItems();
   };
 
-  const groupByHeader = (list: any[]) => {
-    const grouped: Record<string, any[]> = {};
+  const groupByHeader = (list: NeededItem[]) => {
+    const grouped: Record<string, NeededItem[]> = {};
 
     list.forEach(item => {
       const key = item.header || 'Other';
@@ -243,7 +259,7 @@ const Needs = ({ route }: any) => {
               <View style={styles.groupLine} />
             </View>
 
-            {(groupItems as any[]).map(item => (
+            {groupItems.map(item => (
               <AnimatedPressable
                 key={item.id}
                 style={styles.itemRow}

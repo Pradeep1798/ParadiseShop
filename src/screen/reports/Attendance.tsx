@@ -22,13 +22,16 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import ChocolateLoader from 'components/ChocolateLoader';
 import AnimatedPressable from 'components/AnimatedPressable';
+import { LeaveEntry, StaffMember } from 'types/Domain';
 
-const Attendance = ({ route }: any) => {
+const Attendance = ({
+  route,
+}: {
+  route: { params?: { shopId?: string; staffName?: string } };
+}) => {
   const { shopId, staffName } = route.params || {};
 
-  const [staffList, setStaffList] = useState<{ name: string; role: string }[]>(
-    [],
-  );
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
 
   const [fromDate, setFromDate] = useState(new Date());
@@ -42,7 +45,7 @@ const Attendance = ({ route }: any) => {
   const [error, setError] = useState('');
 
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [leaves, setLeaves] = useState<any[]>([]);
+  const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadStaff = useCallback(async () => {
@@ -66,7 +69,7 @@ const Attendance = ({ route }: any) => {
         ({
           id: d.id,
           ...d.data(),
-        } as any),
+        } as LeaveEntry),
     );
 
     const monthStr = `${selectedMonth.getFullYear()}-${String(

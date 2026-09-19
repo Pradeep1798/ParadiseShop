@@ -24,14 +24,42 @@ import {
 } from 'utils/SalesCalculation';
 import { useFocusRefresh } from 'utils/hooks';
 import ScreenContainer from 'components/ScreenContainer';
+import { Category, SubVariety } from 'types/Domain';
+
+interface LowStockItem {
+  name: string;
+  category: string;
+  stock: number;
+  unit: string;
+  threshold: number;
+}
+
+interface TodaySummary {
+  sale: number;
+  cash: number;
+  gpay: number;
+  expenseTotal: number;
+  hand: number;
+}
+
+interface ReportHistoryEntry {
+  id: number;
+  label: string;
+  generatedAt: number;
+  filePath: string;
+}
 
 const HISTORY_KEY = 'weekly_report_history';
 
-const Notifications = ({ route }: any) => {
+const Notifications = ({
+  route,
+}: {
+  route: { params?: { shopId?: string } };
+}) => {
   const { shopId } = route.params || {};
-  const [lowStock, setLowStock] = useState<any[]>([]);
-  const [todaySummary, setTodaySummary] = useState<any>(null);
-  const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
+  const [todaySummary, setTodaySummary] = useState<TodaySummary | null>(null);
+  const [recentReports, setRecentReports] = useState<ReportHistoryEntry[]>([]);
 
   const load = useCallback(async () => {
     if (!shopId) return;
@@ -45,9 +73,9 @@ const Notifications = ({ route }: any) => {
     ]);
 
     // Low stock check
-    const low: any[] = [];
+    const low: LowStockItem[] = [];
     categories.forEach(cat => {
-      (cat.subVarieties || []).forEach((sv: any) => {
+      cat.subVarieties.forEach((sv: SubVariety) => {
         if (sv.stock <= sv.lowStockThreshold) {
           low.push({
             name: sv.name,
@@ -132,7 +160,7 @@ const Notifications = ({ route }: any) => {
         {recentReports.length === 0 && (
           <EmptyState text="No reports generated yet." />
         )}
-        {recentReports.map((r: any) => (
+        {recentReports.map(r => (
           <View key={r.id} style={styles.row}>
             <Text style={styles.rowText}>{r.label}</Text>
             <Text style={styles.rowValue}>

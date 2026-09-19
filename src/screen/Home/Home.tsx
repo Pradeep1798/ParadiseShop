@@ -40,15 +40,19 @@ import { homeStyles } from './styles';
 import ChocolateLoader from 'components/ChocolateLoader';
 import AnimatedPressable from 'components/AnimatedPressable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CartItem, Category, SubVariety } from 'types/Domain';
 
-const Home = ({ route }: any) => {
+const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
   const { shopId, shopName, staffName } = route.params || {};
-  const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [selectedSub, setSelectedSub] = useState<any>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Pick<
+    Category,
+    'id' | 'name'
+  > | null>(null);
+  const [selectedSub, setSelectedSub] = useState<SubVariety | null>(null);
   const [grams, setGrams] = useState('');
   const [count, setCount] = useState('1');
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [billDiscount, setBillDiscount] = useState('0');
   const [amountOverride, setAmountOverride] = useState<string | null>(null);
@@ -114,7 +118,7 @@ const Home = ({ route }: any) => {
     () =>
       categories
         .flatMap(cat =>
-          (cat.subVarieties || []).map((sv: any) => ({
+          cat.subVarieties.map((sv: SubVariety) => ({
             ...sv,
             categoryId: cat.id,
             categoryName: cat.name,
@@ -137,7 +141,11 @@ const Home = ({ route }: any) => {
   const countNum = selectedSub?.unit === 'pcs' ? 1 : parseInt(count) || 1;
 
   const billAmount = perUnitAmount * countNum;
-  const selectItem = (cat: any, sv: any, presetGrams?: number) => {
+  const selectItem = (
+    cat: Pick<Category, 'id' | 'name'>,
+    sv: SubVariety,
+    presetGrams?: number,
+  ) => {
     setSelectedCategory(cat);
     setSelectedSub(sv);
     setGrams(presetGrams ? String(presetGrams) : '');
@@ -226,8 +234,8 @@ const Home = ({ route }: any) => {
       const monthKey = now.toISOString().slice(0, 7);
 
       const allTx = await getTransactionsForDate(shopId, today);
-      const sales = excludeVoided(allTx.filter((t: any) => t.type === 'sale'));
-      const returns = allTx.filter((t: any) => t.type === 'return');
+      const sales = excludeVoided(allTx.filter(t => t.type === 'sale'));
+      const returns = allTx.filter(t => t.type === 'return');
       const { cash, gpay } = applyReturnsToTotals(
         computeCashGpayTotals(sales),
         sales,
@@ -290,7 +298,7 @@ const Home = ({ route }: any) => {
         gpayPortion: Number((item.finalAmount - cashPortions[i]).toFixed(2)),
       }));
 
-      const byCategory: Record<string, any[]> = {};
+      const byCategory: Record<string, CartItem[]> = {};
 
       itemsWithPayment.forEach(item => {
         if (!byCategory[item.categoryId]) {
@@ -305,21 +313,23 @@ const Home = ({ route }: any) => {
 
         const itemsForThisCategory = byCategory[categoryId];
 
-        const updatedSubVarieties = category.subVarieties.map((sv: any) => {
-          const deductions = itemsForThisCategory
-            .filter(i => i.subVarietyId === sv.id)
-            .reduce(
-              (sum, i) => sum + computeStockDelta(sv.unit, i.quantity),
-              0,
-            );
+        const updatedSubVarieties = category.subVarieties.map(
+          (sv: SubVariety) => {
+            const deductions = itemsForThisCategory
+              .filter(i => i.subVarietyId === sv.id)
+              .reduce(
+                (sum, i) => sum + computeStockDelta(sv.unit, i.quantity),
+                0,
+              );
 
-          return deductions > 0
-            ? {
-                ...sv,
-                stock: roundStock(sv.stock - deductions),
-              }
-            : sv;
-        });
+            return deductions > 0
+              ? {
+                  ...sv,
+                  stock: roundStock(sv.stock - deductions),
+                }
+              : sv;
+          },
+        );
         await updateCategoryStock(shopId, categoryId, updatedSubVarieties);
       }
 
@@ -369,7 +379,9 @@ const Home = ({ route }: any) => {
     );
   }
 
-  const subItems = selectedCategory?.subVarieties || [];
+  const subItems =
+    categories.find(category => category.id === selectedCategory?.id)
+      ?.subVarieties || [];
 
   return (
     <View style={homeStyles.homeScreen}>
@@ -503,7 +515,7 @@ const Home = ({ route }: any) => {
 
             {subItems.length > 0 ? (
               <View style={homeStyles.itemGrid}>
-                {subItems.map((sv: any, index: number) => {
+                {subItems.map((sv: SubVariety, index: number) => {
                   const active = selectedSub?.id === sv.id;
 
                   const stock = Number(sv.stock || 0);

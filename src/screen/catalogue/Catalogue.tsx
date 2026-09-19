@@ -24,16 +24,38 @@ import ModalOverlay from 'components/ModalOverlay';
 import PillGroup from 'components/PillGroup';
 import { copyShopCatalogue } from 'services/Service';
 import { COLORS } from 'theme/Theme';
+import { Category, SubVariety } from 'types/Domain';
+
+interface EditingItem {
+  categoryId: string;
+  subVariety: SubVariety;
+}
+
+interface ItemEditorProps {
+  initial: SubVariety;
+  isNew: boolean;
+  saving: boolean;
+  error: string;
+  onCancel: () => void;
+  onSave: (item: SubVariety) => void;
+}
+
+interface CategoryEditorProps {
+  saving: boolean;
+  error: string;
+  onCancel: () => void;
+  onSave: (name: string) => void;
+}
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-const Catalogue = ({ route }: any) => {
+const Catalogue = ({ route }: { route: { params: { shopId: string } } }) => {
   const { shopId } = route.params || {};
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [editingItem, setEditingItem] = useState<any>(null); // { categoryId, subVariety } or null
+  const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
   const [addingCategory, setAddingCategory] = useState(false);
   const [addingItemTo, setAddingItemTo] = useState<string | null>(null); // categoryId
   const [saving, setSaving] = useState(false);
@@ -44,7 +66,7 @@ const Catalogue = ({ route }: any) => {
   const loadCategories = useCallback(async () => {
     const db = getFirestore();
     const snap = await getDocs(collection(db, 'shops', shopId, 'categories'));
-    setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    setCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as Category)));
   }, [shopId]);
 
   React.useEffect(() => {
@@ -62,7 +84,7 @@ const Catalogue = ({ route }: any) => {
 
   const saveItem = async (
     categoryId: string,
-    updatedItem: any,
+    updatedItem: SubVariety,
     isNew: boolean,
   ) => {
     setSaving(true);
@@ -70,11 +92,11 @@ const Catalogue = ({ route }: any) => {
     try {
       const db = getFirestore();
       const category = categories.find(c => c.id === categoryId);
-      let updatedSubVarieties;
+      let updatedSubVarieties: SubVariety[];
       if (isNew) {
         updatedSubVarieties = [...(category.subVarieties || []), updatedItem];
       } else {
-        updatedSubVarieties = category.subVarieties.map((sv: any) =>
+        updatedSubVarieties = category.subVarieties.map((sv: SubVariety) =>
           sv.id === updatedItem.id ? updatedItem : sv,
         );
       }
@@ -163,7 +185,7 @@ const Catalogue = ({ route }: any) => {
 
               {isOpen && (
                 <>
-                  {(cat.subVarieties || []).map((sv: any) => (
+                  {cat.subVarieties.map((sv: SubVariety) => (
                     <TouchableOpacity
                       key={sv.id}
                       style={styles.itemRow}
@@ -208,7 +230,7 @@ const Catalogue = ({ route }: any) => {
             setEditingItem(null);
             setError('');
           }}
-          onSave={(item: any) => saveItem(editingItem.categoryId, item, false)}
+          onSave={item => saveItem(editingItem.categoryId, item, false)}
         />
       )}
 
@@ -230,7 +252,7 @@ const Catalogue = ({ route }: any) => {
             setAddingItemTo(null);
             setError('');
           }}
-          onSave={(item: any) => saveItem(addingItemTo, item, true)}
+          onSave={item => saveItem(addingItemTo, item, true)}
         />
       )}
 
@@ -280,7 +302,14 @@ const Catalogue = ({ route }: any) => {
   );
 };
 
-function ItemEditor({ initial, isNew, saving, error, onCancel, onSave }: any) {
+function ItemEditor({
+  initial,
+  isNew,
+  saving,
+  error,
+  onCancel,
+  onSave,
+}: ItemEditorProps) {
   const [name, setName] = useState(initial.name);
   const [unit, setUnit] = useState(initial.unit);
   const [pricePerKg, setPricePerKg] = useState(String(initial.pricePerKg));
@@ -396,7 +425,12 @@ function ItemEditor({ initial, isNew, saving, error, onCancel, onSave }: any) {
   );
 }
 
-function CategoryEditor({ saving, error, onCancel, onSave }: any) {
+function CategoryEditor({
+  saving,
+  error,
+  onCancel,
+  onSave,
+}: CategoryEditorProps) {
   const [name, setName] = useState('');
 
   return (

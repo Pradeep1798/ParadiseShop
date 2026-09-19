@@ -12,7 +12,16 @@ import { SCREENS } from 'roots/RootStack';
 
 const MIN_SPLASH_DURATION = 2000;
 
-const Splash = ({ navigation }: any) => {
+const Splash = ({
+  navigation,
+}: {
+  navigation: {
+    reset: (state: {
+      index: number;
+      routes: Array<{ name: string; params?: Record<string, string> }>;
+    }) => void;
+  };
+}) => {
   useEffect(() => {
     const check = async () => {
       const start = Date.now();

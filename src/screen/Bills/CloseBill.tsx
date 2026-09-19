@@ -29,13 +29,20 @@ import { useFocusRefresh } from 'utils/hooks';
 import ScreenContainer from 'components/ScreenContainer';
 import AnimatedAmount from 'components/AnimatedAmount';
 import ChocolateLoader from 'components/ChocolateLoader';
+import { DailyClosing, DailySummary } from 'types/Domain';
 
-const CloseBill = ({ route, navigation }: any) => {
+const CloseBill = ({
+  route,
+  navigation,
+}: {
+  route: { params?: { shopId?: string; staffName?: string } };
+  navigation: { navigate: (screen: string, params?: unknown) => void };
+}) => {
   const { shopId, staffName } = route.params || {};
   const today = new Date().toISOString().slice(0, 10);
 
-  const [summary, setSummary] = useState<any>(null);
-  const [alreadyClosed, setAlreadyClosed] = useState<any>(null);
+  const [summary, setSummary] = useState<DailySummary | null>(null);
+  const [alreadyClosed, setAlreadyClosed] = useState<DailyClosing | null>(null);
   const [excessOrShortage, setExcessOrShortage] = useState('0');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -104,10 +111,10 @@ const CloseBill = ({ route, navigation }: any) => {
     }
   };
 
- if (loading) {
+  if (loading) {
     return (
       <View style={styles.center}>
-        <ChocolateLoader size="medium" text='Loading...'/>
+        <ChocolateLoader size="medium" text="Loading..." />
       </View>
     );
   }

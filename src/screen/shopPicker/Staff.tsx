@@ -16,20 +16,28 @@ import {
 import { setDeviceSession } from 'utils/HelperFn';
 import { SCREENS } from 'roots/RootStack';
 import ChocolateLoader from 'components/ChocolateLoader';
+import { StaffMember } from 'types/Domain';
 
-const Staff = ({ route, navigation }: any) => {
+const Staff = ({
+  route,
+  navigation,
+}: {
+  route: { params: { shopId: string; shopName: string } };
+  navigation: {
+    reset: (state: {
+      index: number;
+      routes: Array<{ name: string; params?: Record<string, string> }>;
+    }) => void;
+  };
+}) => {
   const { shopId, shopName } = route.params;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [staffList, setStaffList] = useState<
-    { name: string; role: string; password?: string }[]
-  >([]);
-  const [passwordPrompt, setPasswordPrompt] = useState<{
-    name: string;
-    role: string;
-    password?: string;
-  } | null>(null);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [passwordPrompt, setPasswordPrompt] = useState<StaffMember | null>(
+    null,
+  );
   const [isCreatingPassword, setIsCreatingPassword] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
@@ -55,11 +63,7 @@ const Staff = ({ route, navigation }: any) => {
     loadNames();
   }, [shopId]);
 
-  const choose = async (person: {
-    name: string;
-    role: string;
-    password?: string;
-  }) => {
+  const choose = async (person: StaffMember) => {
     setSaving(true);
     try {
       await setDeviceSession({
@@ -95,11 +99,7 @@ const Staff = ({ route, navigation }: any) => {
     );
   }
 
-  const handleTap = (person: {
-    name: string;
-    role: string;
-    password?: string;
-  }) => {
+  const handleTap = (person: StaffMember) => {
     setPasswordPrompt(person);
     setIsCreatingPassword(!person.password);
     setPasswordInput('');

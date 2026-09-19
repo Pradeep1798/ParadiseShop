@@ -19,10 +19,22 @@ import { useFocusRefresh } from 'utils/hooks';
 import Card from 'components/Card';
 import ScreenContainer from 'components/ScreenContainer';
 import ChocolateLoader from 'components/ChocolateLoader';
+import { DailyClosing } from 'types/Domain';
 
-const DailyReports = ({ route }: any) => {
+interface DailyReportRow {
+  date: string;
+  sale: number;
+  gpay: number;
+  expenseTotal: number;
+  expenseByDesc: Record<string, number>;
+  hand: number;
+  excessOrShortage: number | null;
+  closingNote?: string | null;
+}
+
+const DailyReports = ({ route }: { route: { params?: { shopId?: string } } }) => {
   const { shopId } = route.params || {};
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<DailyReportRow[]>([]);
 
   const getMonthStart = () => {
     const now = new Date();
@@ -63,7 +75,7 @@ const DailyReports = ({ route }: any) => {
         const { byDesc, total: expenseTotal } =
           computeExpenseBreakdown(datesExpenses);
 
-        const closing = closingsByDate[date];
+        const closing: DailyClosing | undefined = closingsByDate[date];
         return {
           date,
           sale: cash + gpay,

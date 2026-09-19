@@ -23,11 +23,12 @@ import ScreenContainer from 'components/ScreenContainer';
 import Card from 'components/Card';
 import EmptyState from 'components/EmptyState';
 import { getCategories } from 'services/Service';
+import { Category, SubVariety } from 'types/Domain';
 
-const PriceList = ({ route }: any) => {
+const PriceList = ({ route }: { route: { params?: { shopId?: string } } }) => {
   const { shopId } = route.params || {};
 
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -88,7 +89,7 @@ const PriceList = ({ route }: any) => {
             </TouchableOpacity>
 
             {isOpen &&
-              (cat.subVarieties || []).map((sv: any) => (
+              cat.subVarieties.map((sv: SubVariety) => (
                 <View key={sv.id} style={styles.itemRow}>
                   <Text style={styles.itemName}>{sv.name}</Text>
 

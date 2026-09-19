@@ -1,3 +1,5 @@
+import { Expense, Transaction } from 'types/Domain';
+
 export interface CashGpayTotals {
   cash: number;
   gpay: number;
@@ -5,9 +7,10 @@ export interface CashGpayTotals {
 
 // Handles both new split-payment records (cashPortion/gpayPortion) and
 // old pre-split records (paymentMethod + finalAmount) transparently.
-export function computeCashGpayTotals(sales: any[]): CashGpayTotals {
-  let cash = 0, gpay = 0;
-  sales.forEach((t) => {
+export function computeCashGpayTotals(sales: Transaction[]): CashGpayTotals {
+  let cash = 0,
+    gpay = 0;
+  sales.forEach(t => {
     if (t.cashPortion !== undefined) {
       cash += t.cashPortion;
       gpay += t.gpayPortion;
@@ -22,10 +25,14 @@ export function computeCashGpayTotals(sales: any[]): CashGpayTotals {
 
 // Nets returns against the day/method the ORIGINAL sale used (not today's date),
 // since that's when the revenue was actually recorded.
-export function applyReturnsToTotals(totals: CashGpayTotals, sales: any[], returns: any[]): CashGpayTotals {
+export function applyReturnsToTotals(
+  totals: CashGpayTotals,
+  sales: Transaction[],
+  returns: Transaction[],
+): CashGpayTotals {
   let { cash, gpay } = totals;
-  returns.forEach((r) => {
-    const original = sales.find((s) => s.id === r.originalTransactionId);
+  returns.forEach(r => {
+    const original = sales.find(s => s.id === r.originalTransactionId);
     if (!original) return;
     const method = r.refundMethod || original.paymentMethod;
     if (method === 'gpay') gpay -= r.refundAmount;
@@ -34,13 +41,16 @@ export function applyReturnsToTotals(totals: CashGpayTotals, sales: any[], retur
   return { cash, gpay };
 }
 
-export function computeDiscountTotal(sales: any[]): number {
+export function computeDiscountTotal(sales: Transaction[]): number {
   return sales.reduce((sum, t) => sum + (t.discount || 0), 0);
 }
 
-export function computeExpenseBreakdown(expenses: any[]): { byDesc: Record<string, number>; total: number } {
+export function computeExpenseBreakdown(expenses: Expense[]): {
+  byDesc: Record<string, number>;
+  total: number;
+} {
   const byDesc: Record<string, number> = {};
-  expenses.forEach((e) => {
+  expenses.forEach(e => {
     const key = e.description.trim();
     byDesc[key] = (byDesc[key] || 0) + e.amount;
   });
@@ -48,9 +58,11 @@ export function computeExpenseBreakdown(expenses: any[]): { byDesc: Record<strin
   return { byDesc, total };
 }
 
-export function computeStockMovementByProduct(transactions: any[]): Record<string, { qty: number; unit: string }> {
+export function computeStockMovementByProduct(
+  transactions: Transaction[],
+): Record<string, { qty: number; unit: string }> {
   const byProduct: Record<string, { qty: number; unit: string }> = {};
-  transactions.forEach((t) => {
+  transactions.forEach(t => {
     const key = t.subVarietyName;
     if (!byProduct[key]) byProduct[key] = { qty: 0, unit: t.unit };
     byProduct[key].qty += t.quantity;
@@ -58,21 +70,29 @@ export function computeStockMovementByProduct(transactions: any[]): Record<strin
   return byProduct;
 }
 
-export function rankProductsByQuantity(sales: any[]): [string, number][] {
+export function rankProductsByQuantity(
+  sales: Transaction[],
+): [string, number][] {
   const byProduct: Record<string, number> = {};
-  sales.forEach((t) => { byProduct[t.subVarietyName] = (byProduct[t.subVarietyName] || 0) + t.quantity; });
+  sales.forEach(t => {
+    byProduct[t.subVarietyName] =
+      (byProduct[t.subVarietyName] || 0) + t.quantity;
+  });
   return Object.entries(byProduct).sort((a, b) => b[1] - a[1]);
 }
 
 // Excludes voided bills — every screen that sums sales should filter through this first.
-export function excludeVoided(transactions: any[]): any[] {
-  return transactions.filter((t) => !t.voided);
+export function excludeVoided(transactions: Transaction[]): Transaction[] {
+  return transactions.filter(t => !t.voided);
 }
 
 // Splits `totalToSplit` proportionally across items by `weights`, guaranteeing
 // the results sum to EXACTLY totalToSplit (no floating-point drift) by having
 // the last item absorb whatever rounding remainder is left over.
-export function splitProportionally(weights: number[], totalToSplit: number): number[] {
+export function splitProportionally(
+  weights: number[],
+  totalToSplit: number,
+): number[] {
   if (weights.length === 0) return [];
   const totalWeight = weights.reduce((s, w) => s + w, 0);
   const result: number[] = [];

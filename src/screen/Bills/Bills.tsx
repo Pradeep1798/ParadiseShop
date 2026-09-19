@@ -36,12 +36,20 @@ import { printReceipt } from 'utils/Printer';
 import { BillStyles } from './BillStyles';
 import AnimatedAmount from 'components/AnimatedAmount';
 import ChocolateLoader from 'components/ChocolateLoader';
+import {
+  BillItem,
+  BillRecord,
+  Category,
+  StaffMember,
+  SubVariety,
+  Transaction,
+} from 'types/Domain';
 
-const Bills = ({ route }: any) => {
+const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
   const { shopId, staffName, role } = route.params;
-  const [bills, setBills] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [returningItem, setReturningItem] = useState<any>(null);
+  const [bills, setBills] = useState<BillRecord[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [returningItem, setReturningItem] = useState<BillItem | null>(null);
   const [returnQty, setReturnQty] = useState('');
   const [returnSaving, setReturnSaving] = useState(false);
   const [returnError, setReturnError] = useState('');
@@ -53,9 +61,9 @@ const Bills = ({ route }: any) => {
   const [paymentFilter, setPaymentFilter] = useState<'cash' | 'gpay' | null>(
     null,
   );
-  const [voidingBill, setVoidingBill] = useState<any>(null);
+  const [voidingBill, setVoidingBill] = useState<BillRecord | null>(null);
   const [voidApprover, setVoidApprover] = useState<string | null>(null);
-  const [managementStaff, setManagementStaff] = useState<any[]>([]);
+  const [managementStaff, setManagementStaff] = useState<StaffMember[]>([]);
   const [voidPasswordInput, setVoidPasswordInput] = useState('');
   const [voidReason, setVoidReason] = useState('');
   const [voidError, setVoidError] = useState('');
@@ -97,40 +105,41 @@ const Bills = ({ route }: any) => {
     ]);
     setCategories(cats);
 
-    const salesToday = excludeVoided(all.filter((t: any) => t.type === 'sale'));
-    const returns = all.filter((t: any) => t.type === 'return');
+    const salesToday = excludeVoided(all.filter(t => t.type === 'sale'));
+    const returns = all.filter(t => t.type === 'return');
 
-    const grouped: Record<string, any> = {};
-    salesToday.forEach((t: any) => {
+    const grouped: Record<string, BillRecord> = {};
+    salesToday.forEach((t: Transaction) => {
+      if (!t.billId) return;
       if (!grouped[t.billId]) {
         grouped[t.billId] = {
           billId: t.billId,
           staffName: t.staffName,
-          paymentMethod: t.paymentMethod,
+          paymentMethod: t.paymentMethod || 'cash',
           timestamp: t.timestamp,
           items: [],
         };
       }
       const returnedForThisItem = returns
-        .filter((r: any) => r.originalTransactionId === t.id)
-        .reduce((sum: number, r: any) => sum + r.quantity, 0);
+        .filter(r => r.originalTransactionId === t.id)
+        .reduce((sum, r) => sum + r.quantity, 0);
       const refundForThisItem = returns
-        .filter((r: any) => r.originalTransactionId === t.id)
-        .reduce((sum: number, r: any) => sum + r.refundAmount, 0);
+        .filter(r => r.originalTransactionId === t.id)
+        .reduce((sum, r) => sum + (r.refundAmount || 0), 0);
 
       grouped[t.billId].items.push({
         ...t,
         returnedQty: returnedForThisItem,
-        netAmount: t.finalAmount - refundForThisItem,
+        netAmount: (t.finalAmount || 0) - refundForThisItem,
       });
     });
 
-    const billsList = Object.values(grouped).map((bill: any) => ({
+    const billsList = Object.values(grouped).map(bill => ({
       ...bill,
-      total: bill.items.reduce((sum: number, i: any) => sum + i.netAmount, 0),
+      total: bill.items.reduce((sum, i) => sum + i.netAmount, 0),
     }));
 
-    setBills(billsList.sort((a: any, b: any) => b.timestamp - a.timestamp));
+    setBills(billsList.sort((a, b) => b.timestamp - a.timestamp));
   }, [shopId, selectedDate]);
 
   const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
@@ -141,7 +150,7 @@ const Bills = ({ route }: any) => {
     getManagementStaff(shopId).then(setManagementStaff);
   }, [shopId]);
 
-  const openReturn = (item: any) => {
+  const openReturn = (item: BillItem) => {
     setReturningItem(item);
     setReturnQty(String(item.quantity - item.returnedQty));
     setRefundPayment(
@@ -176,7 +185,7 @@ const Bills = ({ route }: any) => {
         setReturnError('Category not found. Try again.');
         return;
       }
-      const updatedSubVarieties = category.subVarieties.map((sv: any) =>
+      const updatedSubVarieties = category.subVarieties.map((sv: SubVariety) =>
         sv.id === returningItem.subVarietyId
           ? { ...sv, stock: sv.stock + restoreAmount }
           : sv,
@@ -220,11 +229,14 @@ const Bills = ({ route }: any) => {
       minute: '2-digit',
     });
 
-  const updateBillPayment = async (bill: any, newMethod: 'cash' | 'gpay') => {
+  const updateBillPayment = async (
+    bill: BillRecord,
+    newMethod: 'cash' | 'gpay',
+  ) => {
     setPaymentSaving(true);
     try {
       await Promise.all(
-        bill.items.map((item: any) =>
+        bill.items.map(item =>
           updateTransaction(shopId, item.id, {
             paymentMethod: newMethod,
             cashPortion: newMethod === 'cash' ? item.finalAmount : 0,
@@ -241,7 +253,7 @@ const Bills = ({ route }: any) => {
     }
   };
 
-  const openVoid = (bill: any) => {
+  const openVoid = (bill: BillRecord) => {
     setVoidingBill(bill);
     setVoidApprover(null);
     setVoidPasswordInput('');
@@ -267,36 +279,38 @@ const Bills = ({ route }: any) => {
     setVoidSaving(true);
     setVoidError('');
     try {
-      const byCategory: Record<string, any[]> = {};
-      voidingBill.items.forEach((item: any) => {
+      const byCategory: Record<string, BillItem[]> = {};
+      voidingBill.items.forEach(item => {
         if (!byCategory[item.categoryId]) byCategory[item.categoryId] = [];
         byCategory[item.categoryId].push(item);
       });
       for (const categoryId of Object.keys(byCategory)) {
         const category = categories.find(c => c.id === categoryId);
         const itemsForThisCategory = byCategory[categoryId];
-        const updatedSubVarieties = category.subVarieties.map((sv: any) => {
-          const restore = itemsForThisCategory
-            .filter(i => i.subVarietyId === sv.id)
-            .reduce(
-              (sum, i) =>
-                sum + computeStockDelta(sv.unit, i.quantity - i.returnedQty),
-              0,
-            );
-          return restore > 0 ? { ...sv, stock: sv.stock + restore } : sv;
-        });
+        const updatedSubVarieties = category.subVarieties.map(
+          (sv: SubVariety) => {
+            const restore = itemsForThisCategory
+              .filter(i => i.subVarietyId === sv.id)
+              .reduce(
+                (sum, i) =>
+                  sum + computeStockDelta(sv.unit, i.quantity - i.returnedQty),
+                0,
+              );
+            return restore > 0 ? { ...sv, stock: sv.stock + restore } : sv;
+          },
+        );
         await updateCategoryStock(shopId, categoryId, updatedSubVarieties);
       }
 
       await Promise.all(
-        voidingBill.items.map((item: any) =>
+        voidingBill.items.map(item =>
           updateTransaction(shopId, item.id, { voided: true }),
         ),
       );
 
       await addVoidRecord(shopId, {
         billId: voidingBill.billId,
-        items: voidingBill.items.map((i: any) => ({
+        items: voidingBill.items.map(i => ({
           name: i.subVarietyName,
           qty: i.quantity,
           unit: i.unit,
@@ -325,28 +339,30 @@ const Bills = ({ route }: any) => {
     return true;
   });
 
-  
- if (loading) {
+  if (loading) {
     return (
       <View style={BillStyles.center}>
-        <ChocolateLoader size="medium" text='Good Sales too many bills.......'/>
+        <ChocolateLoader
+          size="medium"
+          text="Good Sales too many bills......."
+        />
       </View>
     );
   }
 
-  const handlePrint = async (bill: any) => {
+  const handlePrint = async (bill: BillRecord) => {
     setPrintingBillId(bill.billId);
     setPrintError('');
     try {
       await printReceipt({
         shopName: route.params.shopName,
-        billItems: bill.items.map((i: any) => ({
+        billItems: bill.items.map(i => ({
           name: i.subVarietyName,
           qty: i.pieceInfo || `${i.quantity}${i.unit}`,
           amount: i.billAmount ?? i.finalAmount,
         })),
         discount: bill.items.reduce(
-          (sum: number, i: any) => sum + (i.discount || 0),
+          (sum: number, i) => sum + (i.discount || 0),
           0,
         ),
         total: bill.total,
@@ -447,14 +463,14 @@ const Bills = ({ route }: any) => {
 
         {filteredBills.map(bill => {
           const billDiscountTotal = bill.items.reduce(
-            (sum: number, i: any) => sum + (i.discount || 0),
+            (sum: number, i) => sum + (i.discount || 0),
             0,
           );
           const billExcessTotal = bill.items.reduce(
-            (sum: number, i: any) => sum + (i.excess || 0),
+            (sum: number, i) => sum + (i.excess || 0),
             0,
           );
-          const isVoided = bill.items.every((i: any) => i.voided);
+          const isVoided = bill.items.every(i => i.voided);
 
           return (
             <Card
@@ -463,7 +479,7 @@ const Bills = ({ route }: any) => {
             >
               {isVoided && <Text style={BillStyles.voidedBadge}>VOIDED</Text>}
 
-              {bill.items.map((item: any, i: number) => (
+              {bill.items.map((item, i) => (
                 <TouchableOpacity
                   key={i}
                   style={BillStyles.itemRow}
