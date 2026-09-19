@@ -1,3 +1,4 @@
+import AnimatedAmount from 'components/AnimatedAmount';
 import React from 'react';
 import {
   View,
@@ -7,17 +8,9 @@ import {
   StyleSheet,
 } from 'react-native';
 
-import {
-  COLORS,
-  RADIUS,
-  SPACING,
-  FONT_SIZE,
-} from 'theme/Theme';
+import { COLORS, RADIUS, SPACING, FONT_SIZE } from 'theme/Theme';
 
-import {
-  getQuantityUnitLabel,
-  formatCurrency,
-} from 'utils/HelperFn';
+import { getQuantityUnitLabel, formatCurrency } from 'utils/HelperFn';
 
 interface CartItem {
   subVarietyName: string;
@@ -187,7 +180,7 @@ const CartSummary = ({
           <Text style={styles.finalTotalHint}>Amount to collect</Text>
         </View>
 
-        <Text style={styles.finalTotalValue}>{formatCurrency(total)}</Text>
+        <AnimatedAmount value={total} style={styles.finalTotalValue} />
       </View>
     </View>
   );

@@ -2,6 +2,10 @@ import { StyleSheet } from "react-native";
 import { COLORS } from "theme/Theme";
 
 export const homeStyles = StyleSheet.create({
+  homeScreen: {
+    flex: 1,
+    backgroundColor: '#FBF4EC',
+  },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -10,7 +14,7 @@ export const homeStyles = StyleSheet.create({
   },
 
   container: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingTop: 2,
     paddingBottom: 30,
   },
@@ -24,7 +28,8 @@ export const homeStyles = StyleSheet.create({
   /* SECTIONS */
 
   section: {
-    marginBottom: 20,
+    marginBottom: 18,
+    marginTop: 8,
   },
 
   sectionHeader: {
@@ -33,8 +38,9 @@ export const homeStyles = StyleSheet.create({
 
   sectionTitle: {
     color: COLORS.cacaoDark,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
+    marginBottom: 6,
   },
 
   sectionSubtitle: {
@@ -43,6 +49,42 @@ export const homeStyles = StyleSheet.create({
     marginTop: 2,
   },
 
+  categoryGridScroll: {
+    paddingRight: 12,
+  },
+
+  categoryGrid: {
+    flexDirection: 'column',
+    flexWrap: 'wrap',
+    height: 106,
+  },
+
+  categoryChip: {
+    height: 40,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    marginRight: 7,
+    marginBottom: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryChipActive: {
+    backgroundColor: COLORS.cacao,
+    borderColor: COLORS.cacao,
+  },
+  categoryChipText: {
+    color: COLORS.cacaoDark,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  categoryChipTextActive: {
+    color: COLORS.white,
+    fontWeight: '700',
+    fontSize: 13,
+  },
   /* QUICK SELL */
 
   quickScroll: {
@@ -197,7 +239,7 @@ export const homeStyles = StyleSheet.create({
 
   stockLabel: {
     color: COLORS.textMuted,
-    fontSize: 10,
+    fontSize: 11,
   },
 
   stockLabelActive: {
@@ -206,7 +248,7 @@ export const homeStyles = StyleSheet.create({
 
   stockValue: {
     color: COLORS.cacaoDark,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
   },
 
@@ -329,43 +371,43 @@ export const homeStyles = StyleSheet.create({
   /* QUANTITY */
 
   quantityControl: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  height: 50,
-  backgroundColor: COLORS.white,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: 10,
-  overflow: 'hidden',
-  marginTop: 6,
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 50,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginTop: 6,
+  },
 
-quantityButton: {
-  width: 52,
-  height: '100%',
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: COLORS.creamAlt,
-},
+  quantityButton: {
+    width: 52,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.creamAlt,
+  },
 
-quantityButtonText: {
-  fontSize: 24,
-  lineHeight: 28,
-  fontWeight: '600',
-  color: COLORS.cacao,
-},
+  quantityButtonText: {
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '600',
+    color: COLORS.cacao,
+  },
 
-quantityInput: {
-  flex: 1,
-  height: '100%',
-  paddingHorizontal: 10,
-  paddingVertical: 0,
-  fontSize: 17,
-  fontWeight: '600',
-  color: COLORS.cacaoDark,
-  backgroundColor: COLORS.white,
-  textAlign: 'center',
-},
+  quantityInput: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+    fontSize: 17,
+    fontWeight: '600',
+    color: COLORS.cacaoDark,
+    backgroundColor: COLORS.white,
+    textAlign: 'center',
+  },
 
   quantityBox: {
     height: 58,
@@ -386,7 +428,6 @@ quantityInput: {
     paddingLeft: 13,
   },
 
-
   quantityUnit: {
     color: COLORS.textMuted,
     fontSize: 12,
@@ -398,7 +439,6 @@ quantityInput: {
     gap: 6,
     paddingRight: 7,
   },
-
 
   /* COUNT */
 
@@ -464,13 +504,13 @@ quantityInput: {
     fontSize: 12,
     fontWeight: '700',
   },
-amountInput: {
-  minWidth: 90,
-  fontSize: 20,
-  fontWeight: '900',
-  color: COLORS.cacao,
-  padding: 0,
-},
+  amountInput: {
+    minWidth: 90,
+    fontSize: 20,
+    fontWeight: '900',
+    color: COLORS.cacao,
+    padding: 0,
+  },
   amountCalculation: {
     color: COLORS.textMuted,
     fontSize: 10,
@@ -657,12 +697,152 @@ amountInput: {
 
   completeAmount: {
     color: COLORS.white,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
     marginLeft: 'auto',
   },
 
   bottomSpace: {
     height: 40,
+  },
+  celebrationOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 9999,
+    elevation: 9999,
+    backgroundColor: 'rgba(43, 22, 12, 0.30)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+
+  celebrationCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFF9F2',
+    borderRadius: 26,
+
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 18,
+
+    alignItems: 'center',
+
+    borderWidth: 1,
+    borderColor: '#E6D2BF',
+
+    shadowColor: '#3B1D0E',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  recordBadge: {
+    backgroundColor: COLORS.cacao,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    marginBottom: 18,
+  },
+
+  recordBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+
+  trophyCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#F3E0C8',
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    marginBottom: 12,
+
+    borderWidth: 1,
+    borderColor: '#E2C19F',
+  },
+
+  trophyIcon: {
+    fontSize: 32,
+  },
+
+  celebrationTitle: {
+    color: COLORS.cacaoDark,
+    fontSize: 23,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+
+  celebrationSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 13.5,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 7,
+  },
+  amountBox: {
+    width: '100%',
+    backgroundColor: '#F4E5D5',
+
+    borderRadius: 15,
+
+    paddingVertical: 13,
+    paddingHorizontal: 10,
+
+    alignItems: 'center',
+
+    marginTop: 17,
+
+    borderWidth: 1,
+    borderColor: '#E6CEB7',
+  },
+
+  amountLabelAni: {
+    color: COLORS.textMuted,
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 2,
+  },
+
+  celebrationAmount: {
+    color: COLORS.caramel,
+    fontSize: 32,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+
+  celebrationMessage: {
+    color: COLORS.cacao,
+    fontSize: 13.5,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 15,
+  },
+
+  celebrationDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '72%',
+    marginTop: 14,
+  },
+
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#DEC8B2',
+  },
+
+  chocolateMark: {
+    fontSize: 13,
+    marginHorizontal: 8,
   },
 });

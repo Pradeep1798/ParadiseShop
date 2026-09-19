@@ -32,9 +32,13 @@ import {
 import { excludeVoided } from 'utils/SalesCalculation';
 import { useFocusRefresh } from 'utils/hooks';
 import { COLORS } from 'theme/Theme';
+import { printReceipt } from 'utils/Printer';
+import { BillStyles } from './BillStyles';
+import AnimatedAmount from 'components/AnimatedAmount';
+import ChocolateLoader from 'components/ChocolateLoader';
 
 const Bills = ({ route }: any) => {
-const { shopId, staffName, role } = route.params;
+  const { shopId, staffName, role } = route.params;
   const [bills, setBills] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [returningItem, setReturningItem] = useState<any>(null);
@@ -49,8 +53,6 @@ const { shopId, staffName, role } = route.params;
   const [paymentFilter, setPaymentFilter] = useState<'cash' | 'gpay' | null>(
     null,
   );
-
-  // Void state
   const [voidingBill, setVoidingBill] = useState<any>(null);
   const [voidApprover, setVoidApprover] = useState<string | null>(null);
   const [managementStaff, setManagementStaff] = useState<any[]>([]);
@@ -58,10 +60,11 @@ const { shopId, staffName, role } = route.params;
   const [voidReason, setVoidReason] = useState('');
   const [voidError, setVoidError] = useState('');
   const [voidSaving, setVoidSaving] = useState(false);
-
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
+  const [printingBillId, setPrintingBillId] = useState<string | null>(null);
+  const [printError, setPrintError] = useState('');
 
   const canRequestVoid = role === 'owner' || role === 'manager';
 
@@ -322,38 +325,66 @@ const { shopId, staffName, role } = route.params;
     return true;
   });
 
-  if (loading) {
+  
+ if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.textMuted} />
+      <View style={BillStyles.center}>
+        <ChocolateLoader size="medium" text='Good Sales too many bills.......'/>
       </View>
     );
   }
 
+  const handlePrint = async (bill: any) => {
+    setPrintingBillId(bill.billId);
+    setPrintError('');
+    try {
+      await printReceipt({
+        shopName: route.params.shopName,
+        billItems: bill.items.map((i: any) => ({
+          name: i.subVarietyName,
+          qty: i.pieceInfo || `${i.quantity}${i.unit}`,
+          amount: i.billAmount ?? i.finalAmount,
+        })),
+        discount: bill.items.reduce(
+          (sum: number, i: any) => sum + (i.discount || 0),
+          0,
+        ),
+        total: bill.total,
+        paymentMethod: bill.paymentMethod,
+        staffName: bill.staffName,
+        timestamp: bill.timestamp,
+      });
+    } catch (e) {
+      setPrintError(`Could not print — check the printer is on and paired.`);
+    } finally {
+      setPrintingBillId(null);
+    }
+  };
+
   return (
     <>
       <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-        <View style={styles.dateNav}>
+        <View style={BillStyles.dateNav}>
           <TouchableOpacity
             onPress={() => changeDay(-1)}
-            style={styles.dateNavBtn}
+            style={BillStyles.dateNavBtn}
             activeOpacity={0.75}
           >
-            <Text style={styles.dateNavArrow}>‹</Text>
+            <Text style={BillStyles.dateNavArrow}>‹</Text>
           </TouchableOpacity>
-          <Text style={styles.dateNavLabel}>
+          <Text style={BillStyles.dateNavLabel}>
             {formatDateHeader(selectedDate)}
           </Text>
           <TouchableOpacity
             onPress={() => changeDay(1)}
-            style={styles.dateNavBtn}
+            style={BillStyles.dateNavBtn}
             disabled={isToday}
             activeOpacity={0.75}
           >
             <Text
               style={[
-                styles.dateNavArrow,
-                isToday && styles.dateNavArrowDisabled,
+                BillStyles.dateNavArrow,
+                isToday && BillStyles.dateNavArrowDisabled,
               ]}
             >
               ›
@@ -361,25 +392,25 @@ const { shopId, staffName, role } = route.params;
           </TouchableOpacity>
         </View>
 
-        <View style={styles.filterRow}>
-          <Text style={styles.subtitle}>
+        <View style={BillStyles.filterRow}>
+          <Text style={BillStyles.subtitle}>
             {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''} ·{' '}
             {formatCurrency(filteredBills.reduce((s, b) => s + b.total, 0))}{' '}
             total
           </Text>
           <TouchableOpacity
-            style={styles.filterIconBtn}
+            style={BillStyles.filterIconBtn}
             onPress={() => setFilterVisible(v => !v)}
             activeOpacity={0.75}
           >
-            <Text style={styles.filterIconText}>
+            <Text style={BillStyles.filterIconText}>
               🔍 Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             </Text>
           </TouchableOpacity>
         </View>
 
         {filterVisible && (
-          <View style={styles.filterPanel}>
+          <View style={BillStyles.filterPanel}>
             <SectionLabel>Staff</SectionLabel>
             <PillGroup
               options={[
@@ -389,7 +420,7 @@ const { shopId, staffName, role } = route.params;
               selectedKey={staffFilter ?? ''}
               onSelect={key => setStaffFilter(key || null)}
             />
-            <View style={styles.filterSectionGap} />
+            <View style={BillStyles.filterSectionGap} />
             <SectionLabel>Payment Mode</SectionLabel>
             <PillGroup
               options={[
@@ -403,11 +434,11 @@ const { shopId, staffName, role } = route.params;
               }
             />
             <TouchableOpacity
-              style={styles.applyBtn}
+              style={BillStyles.applyBtn}
               onPress={() => setFilterVisible(false)}
               activeOpacity={0.8}
             >
-              <Text style={styles.applyBtnText}>Apply</Text>
+              <Text style={BillStyles.applyBtnText}>Apply</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -428,14 +459,14 @@ const { shopId, staffName, role } = route.params;
           return (
             <Card
               key={bill.billId}
-              style={isVoided ? styles.voidedCard : undefined}
+              style={isVoided ? BillStyles.voidedCard : undefined}
             >
-              {isVoided && <Text style={styles.voidedBadge}>VOIDED</Text>}
+              {isVoided && <Text style={BillStyles.voidedBadge}>VOIDED</Text>}
 
               {bill.items.map((item: any, i: number) => (
                 <TouchableOpacity
                   key={i}
-                  style={styles.itemRow}
+                  style={BillStyles.itemRow}
                   onPress={() =>
                     item.returnedQty < item.quantity &&
                     openReturn({ ...item, billId: bill.billId })
@@ -443,65 +474,77 @@ const { shopId, staffName, role } = route.params;
                   disabled={item.returnedQty >= item.quantity}
                   activeOpacity={item.returnedQty < item.quantity ? 0.7 : 1}
                 >
-                  <Text style={styles.itemText}>
+                  <Text style={BillStyles.itemText}>
                     {item.subVarietyName} ({item.quantity} {item.unit})
                     {item.returnedQty > 0
                       ? ` — ${item.returnedQty}${item.unit} returned`
                       : ''}
                   </Text>
-                  <Text style={styles.itemAmount}>
+                  <Text style={BillStyles.itemAmount}>
                     {formatCurrency(item.billAmount ?? item.finalAmount)}
                   </Text>
                 </TouchableOpacity>
               ))}
 
               {billDiscountTotal > 0 && (
-                <View style={styles.itemRow}>
-                  <Text style={[styles.itemText, styles.discountText]}>
+                <View style={BillStyles.itemRow}>
+                  <Text style={[BillStyles.itemText, BillStyles.discountText]}>
                     Discount
                   </Text>
-                  <Text style={[styles.itemAmount, styles.discountText]}>
+                  <Text
+                    style={[BillStyles.itemAmount, BillStyles.discountText]}
+                  >
                     -{formatCurrency(billDiscountTotal)}
                   </Text>
                 </View>
               )}
 
               {billExcessTotal > 0 && (
-                <View style={styles.itemRow}>
-                  <Text style={[styles.itemText, styles.excessText]}>
+                <View style={BillStyles.itemRow}>
+                  <Text style={[BillStyles.itemText, BillStyles.excessText]}>
                     Excess
                   </Text>
-                  <Text style={[styles.itemAmount, styles.excessText]}>
+                  <Text style={[BillStyles.itemAmount, BillStyles.excessText]}>
                     +{formatCurrency(billExcessTotal)}
                   </Text>
                 </View>
               )}
 
               {!!bill.items[0]?.note && (
-                <Text style={styles.noteText}>📝 {bill.items[0].note}</Text>
+                <Text style={BillStyles.noteText}>📝 {bill.items[0].note}</Text>
               )}
 
-              <View style={styles.footerRow}>
-                <View style={styles.leftGroup}>
+              <View style={BillStyles.footerRow}>
+                <View style={BillStyles.leftGroup}>
                   {editingPayment === bill.billId ? (
-                    <View style={styles.paymentEditRow}>
+                    <View style={BillStyles.paymentEditRow}>
                       <TouchableOpacity
-                        style={[styles.badge, styles.badgeCash]}
+                        style={[BillStyles.badge, BillStyles.badgeCash]}
                         onPress={() => updateBillPayment(bill, 'cash')}
                         disabled={paymentSaving}
                         activeOpacity={0.75}
                       >
-                        <Text style={[styles.badgeText, styles.badgeTextCash]}>
+                        <Text
+                          style={[
+                            BillStyles.badgeText,
+                            BillStyles.badgeTextCash,
+                          ]}
+                        >
                           Cash
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.badge, styles.badgeGpay]}
+                        style={[BillStyles.badge, BillStyles.badgeGpay]}
                         onPress={() => updateBillPayment(bill, 'gpay')}
                         disabled={paymentSaving}
                         activeOpacity={0.75}
                       >
-                        <Text style={[styles.badgeText, styles.badgeTextGpay]}>
+                        <Text
+                          style={[
+                            BillStyles.badgeText,
+                            BillStyles.badgeTextGpay,
+                          ]}
+                        >
                           GPay
                         </Text>
                       </TouchableOpacity>
@@ -511,15 +554,15 @@ const { shopId, staffName, role } = route.params;
                       onPress={() => setEditingPayment(bill.billId)}
                       activeOpacity={0.7}
                     >
-                      <View style={styles.paymentBadgeContent}>
+                      <View style={BillStyles.paymentBadgeContent}>
                         <Text
                           style={[
-                            styles.badgeText,
+                            BillStyles.badgeText,
                             bill.paymentMethod === 'gpay'
-                              ? styles.badgeTextGpay
+                              ? BillStyles.badgeTextGpay
                               : bill.paymentMethod === 'split'
-                              ? styles.badgeTextSplit
-                              : styles.badgeTextCash,
+                              ? BillStyles.badgeTextSplit
+                              : BillStyles.badgeTextCash,
                           ]}
                         >
                           {bill.paymentMethod === 'split'
@@ -528,32 +571,53 @@ const { shopId, staffName, role } = route.params;
                             ? 'GPay'
                             : 'Cash'}
                         </Text>
-                        <Text style={styles.editIcon}>✎</Text>
+                        <Text style={BillStyles.editIcon}>✎</Text>
                       </View>
                     </TouchableOpacity>
                   )}
-                  <Text style={styles.staffName} numberOfLines={1}>
+                  <Text style={BillStyles.staffName} numberOfLines={1}>
                     {bill.staffName} · {formatTime(bill.timestamp)}
                   </Text>
                 </View>
-                <Text style={styles.amount}>{formatCurrency(bill.total)}</Text>
+                <AnimatedAmount value={bill.total} style={BillStyles.amount} />
               </View>
 
-              {!isVoided && canRequestVoid && (
-                <TouchableOpacity onPress={() => openVoid(bill)}>
-                  <Text style={styles.voidLink}>Delete this bill</Text>
+              <View style={BillStyles.cardActionsRow}>
+                <TouchableOpacity
+                  style={BillStyles.printButton}
+                  onPress={() => handlePrint(bill)}
+                  disabled={printingBillId === bill.billId}
+                  activeOpacity={0.75}
+                >
+                  <Text style={BillStyles.printButtonText}>
+                    {printingBillId === bill.billId ? 'Printing…' : '🖨 Print'}
+                  </Text>
                 </TouchableOpacity>
+
+                {!isVoided && canRequestVoid && (
+                  <TouchableOpacity
+                    style={BillStyles.voidButton}
+                    onPress={() => openVoid(bill)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={BillStyles.voidButtonText}>Void bill</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {printError && printingBillId === null && (
+                <Text style={BillStyles.error}>{printError}</Text>
               )}
             </Card>
           );
         })}
 
-        <View style={styles.bottomSpace} />
+        <View style={BillStyles.bottomSpace} />
       </ScreenContainer>
 
       <ModalOverlay visible={!!returningItem}>
-        <Text style={styles.modalTitle}>Return Item</Text>
-        <Text style={styles.modalTitle}>{returningItem?.name}</Text>
+        <Text style={BillStyles.modalTitle}>Return Item</Text>
+        <Text style={BillStyles.modalTitle}>{returningItem?.name}</Text>
         <AppInput
           label={`Quantity (Available: ${returningItem?.soldQty ?? 0})`}
           value={returnQty}
@@ -562,7 +626,7 @@ const { shopId, staffName, role } = route.params;
           placeholder="Enter quantity"
           editable={!returnSaving}
         />
-        <Text style={[styles.subtitle, { marginBottom: 4 }]}>
+        <Text style={[BillStyles.subtitle, { marginBottom: 4 }]}>
           Refund Payment
         </Text>
         <PillGroup
@@ -574,8 +638,8 @@ const { shopId, staffName, role } = route.params;
           onSelect={key => setRefundPayment(key as 'cash' | 'gpay')}
           equalWidth
         />
-        {!!returnError && <Text style={styles.error}>{returnError}</Text>}
-        <View style={styles.modalButtonRow}>
+        {!!returnError && <Text style={BillStyles.error}>{returnError}</Text>}
+        <View style={BillStyles.modalButtonRow}>
           <AppButton
             label="Confirm Return"
             variant="danger"
@@ -599,8 +663,8 @@ const { shopId, staffName, role } = route.params;
       </ModalOverlay>
 
       <ModalOverlay visible={!!voidingBill}>
-        <Text style={styles.modalTitle}>Void Bill</Text>
-        <Text style={styles.modalMeta}>
+        <Text style={BillStyles.modalTitle}>Void Bill</Text>
+        <Text style={BillStyles.modalMeta}>
           Requires a manager or owner to approve. Stock will be restored, but
           the original bill stays on record permanently.
         </Text>
@@ -628,9 +692,9 @@ const { shopId, staffName, role } = route.params;
           placeholder="e.g. wrong item entered by mistake"
         />
 
-        {!!voidError && <Text style={styles.error}>{voidError}</Text>}
+        {!!voidError && <Text style={BillStyles.error}>{voidError}</Text>}
 
-        <View style={styles.modalButtonRow}>
+        <View style={BillStyles.modalButtonRow}>
           <AppButton
             label="Cancel"
             variant="outline"
@@ -649,345 +713,5 @@ const { shopId, staffName, role } = route.params;
     </>
   );
 };
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.cream,
-  },
-
-  subtitle: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.textMuted,
-    marginTop: 1,
-  },
-
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
-  dateNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-
-  dateNavBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  dateNavArrow: {
-    fontSize: 25,
-    lineHeight: 28,
-    color: COLORS.caramel,
-    fontWeight: '600',
-  },
-
-  dateNavArrowDisabled: {
-    color: COLORS.border,
-  },
-
-  dateNavLabel: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.cacaoDark,
-    minWidth: 150,
-    textAlign: 'center',
-  },
-
-  filterIconBtn: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-
-  filterIconText: {
-    fontSize: 12.5,
-    color: COLORS.cacao,
-    fontWeight: '600',
-  },
-
-  filterPanel: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-  },
-
-  filterSectionGap: {
-    height: 12,
-  },
-
-  applyBtn: {
-    marginTop: 14,
-    backgroundColor: COLORS.caramel,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-
-  applyBtnText: {
-    color: COLORS.white,
-    fontWeight: '700',
-    fontSize: 13,
-  },
-
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 9,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3E8DD',
-  },
-
-  itemText: {
-    flex: 1,
-    paddingRight: 12,
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.cacaoDark,
-    lineHeight: 19,
-  },
-
-  itemAmount: {
-    minWidth: 75,
-    textAlign: 'right',
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: COLORS.cacao,
-  },
-
-  discountText: {
-    color: '#A33D5B',
-    fontWeight: '600',
-  },
-
-  excessText: {
-    color: COLORS.success,
-    fontWeight: '600',
-  },
-
-  noteText: {
-    fontSize: 11.5,
-    color: '#806452',
-    fontStyle: 'italic',
-    backgroundColor: '#FCF7F2',
-    paddingHorizontal: 9,
-    paddingVertical: 7,
-    borderRadius: 8,
-    marginTop: 7,
-    marginBottom: 5,
-  },
-
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E8D8C7',
-  },
-
-  leftGroup: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginRight: 10,
-  },
-
-  staffName: {
-    flexShrink: 1,
-    fontSize: 11,
-    color: '#9A806C',
-    fontWeight: '500',
-  },
-
-  amount: {
-    minWidth: 90,
-    textAlign: 'right',
-    fontSize: 17,
-    fontWeight: '800',
-    color: COLORS.caramel,
-  },
-
-  paymentEditRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-
-  badge: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 7,
-    minWidth: 52,
-    alignItems: 'center',
-  },
-
-  badgeCash: {
-    backgroundColor: '#E8F0E5',
-  },
-
-  badgeGpay: {
-    backgroundColor: '#E5EEF8',
-  },
-
-  badgeText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-  },
-
-  badgeTextCash: {
-    color: '#52734E',
-  },
-
-  badgeTextGpay: {
-    color: '#3A6EA5',
-  },
-
-  badgeTextSplit: {
-    color: '#C21858',
-  },
-
-  paymentBadgeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-
-  editIcon: {
-    fontSize: 11,
-    color: '#8B6B56',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.cacaoDark,
-  },
-
-  modalMeta: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 4,
-    marginBottom: 16,
-  },
-
-  input: {
-    backgroundColor: COLORS.cream,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 16,
-  },
-
-  paymentRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 4,
-  },
-
-  paymentBtn: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-  },
-
-  paymentBtnActive: {
-    backgroundColor: COLORS.danger,
-    borderColor: COLORS.danger,
-  },
-
-  pillText: {
-    color: COLORS.cacaoDark,
-    fontWeight: '500',
-  },
-
-  pillTextActive: {
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-
-  error: {
-    color: COLORS.danger,
-    marginTop: 10,
-  },
-
-  modalButtonRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 20,
-  },
-
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    backgroundColor: '#F3E6D5',
-  },
-
-  cancelBtnText: {
-    color: COLORS.cacao,
-    fontWeight: '600',
-  },
-
-  confirmBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    backgroundColor: COLORS.danger,
-  },
-
-  confirmBtnText: {
-    color: COLORS.white,
-    fontWeight: '700',
-  },
-
-  bottomSpace: {
-    height: 40,
-  },
-  voidLink: {
-    color: '#9C3654',
-    fontSize: 11,
-    marginTop: 8,
-    textDecorationLine: 'underline',
-    textAlign: 'right',
-  },
-  voidedCard: { opacity: 0.6, borderColor: COLORS.danger },
-  voidedBadge: {
-    color: COLORS.danger,
-    fontWeight: '800',
-    fontSize: 11,
-    marginBottom: 6,
-  },
-});
 
 export default Bills;

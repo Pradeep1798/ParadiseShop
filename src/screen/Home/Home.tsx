@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,26 +8,38 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { splitProportionally } from 'utils/SalesCalculation';
+import {
+  applyReturnsToTotals,
+  computeCashGpayTotals,
+  excludeVoided,
+  splitProportionally,
+} from 'utils/SalesCalculation';
 import {
   getQuantityUnitLabel,
   getStockUnitLabel,
   computeAmount,
   computeStockDelta,
   formatCurrency,
+  roundStock,
 } from 'utils/HelperFn';
-import { printReceipt } from 'utils/Printer';
 import ScreenContainer from 'components/ScreenContainer';
 import { useFocusRefresh } from 'utils/hooks';
 import {
   addTransaction,
   getCategories,
+  getSalesRecord,
+  getTransactionsForDate,
   updateCategoryStock,
+  updateSalesRecord,
 } from 'services/Service';
 import PillGroup from 'components/PillGroup';
 import { COLORS } from 'theme/Theme';
 import CartSummary from './Cart';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import { homeStyles } from './styles';
+import ChocolateLoader from 'components/ChocolateLoader';
+import AnimatedPressable from 'components/AnimatedPressable';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Home = ({ route }: any) => {
   const { shopId, shopName, staffName } = route.params || {};
@@ -48,23 +60,70 @@ const Home = ({ route }: any) => {
   );
   const [splitCash, setSplitCash] = useState('0');
   const [splitGpay, setSplitGpay] = useState('0');
+  const [showRecordCelebration, setShowRecordCelebration] = useState(false);
+  const [recordAmount, setRecordAmount] = useState(0);
+
+  React.useEffect(() => {
+    if (showRecordCelebration) {
+      const timer = setTimeout(() => setShowRecordCelebration(false), 5000); // card stays 5s regardless of confetti
+      return () => clearTimeout(timer);
+    }
+  }, [showRecordCelebration]);
 
   const load = useCallback(async () => {
     setCategories(await getCategories(shopId));
+    checkForUnseenCelebration();
   }, [shopId]);
+
+  const PRIORITY_CATEGORIES = ['chocolate', 'jelly', 'rusk', 'oils items']; // lowercase, matched against cat.name
+
+  const sortedCategories = React.useMemo(() => {
+    return [...categories].sort((a, b) => {
+      const aIndex = PRIORITY_CATEGORIES.indexOf(a.name.toLowerCase());
+      const bIndex = PRIORITY_CATEGORIES.indexOf(b.name.toLowerCase());
+      const aRank = aIndex === -1 ? PRIORITY_CATEGORIES.length : aIndex;
+      const bRank = bIndex === -1 ? PRIORITY_CATEGORIES.length : bIndex;
+      return aRank - bRank; // priority categories sort first, in the order listed; everything else keeps relative order after
+    });
+  }, [categories]);
+
+  const checkForUnseenCelebration = async () => {
+    try {
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      const monthKey = now.toISOString().slice(0, 7);
+
+      const record = await getSalesRecord(shopId, monthKey);
+      if (!record || record.date !== today) return; // no record set today, nothing to show
+
+      const seenKey = `seen_record_${shopId}_${today}_${record.amount}`;
+      const alreadySeen = await AsyncStorage.getItem(seenKey);
+      if (alreadySeen) return; // this device already saw today's current record
+
+      await AsyncStorage.setItem(seenKey, 'true');
+      setRecordAmount(record.amount);
+      setShowRecordCelebration(true);
+    } catch (e) {
+      console.log('Celebration check failed:', e);
+    }
+  };
 
   const { loading, refreshing, onRefresh } = useFocusRefresh(load, [load]);
 
-  const quickItems = categories
-    .flatMap(cat =>
-      (cat.subVarieties || []).map((sv: any) => ({
-        ...sv,
-        categoryId: cat.id,
-        categoryName: cat.name,
-      })),
-    )
-    .filter(sv => sv.pricePerKg > 300)
-    .slice(0, 8);
+  const quickItems = useMemo(
+    () =>
+      categories
+        .flatMap(cat =>
+          (cat.subVarieties || []).map((sv: any) => ({
+            ...sv,
+            categoryId: cat.id,
+            categoryName: cat.name,
+          })),
+        )
+        .filter(sv => sv.pricePerKg > 300)
+        .slice(0, 8),
+    [categories],
+  );
 
   const perUnitAmount =
     selectedSub && grams
@@ -160,6 +219,31 @@ const Home = ({ route }: any) => {
   const finalItemAmount =
     amountOverride !== null ? parseFloat(amountOverride) || 0 : billAmount;
 
+  const checkSalesRecord = async () => {
+    try {
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      const monthKey = now.toISOString().slice(0, 7);
+
+      const allTx = await getTransactionsForDate(shopId, today);
+      const sales = excludeVoided(allTx.filter((t: any) => t.type === 'sale'));
+      const returns = allTx.filter((t: any) => t.type === 'return');
+      const { cash, gpay } = applyReturnsToTotals(
+        computeCashGpayTotals(sales),
+        sales,
+        returns,
+      );
+      const todayTotal = cash + gpay;
+
+      const record = await getSalesRecord(shopId, monthKey);
+      if (!record || todayTotal > record.amount) {
+        await updateSalesRecord(shopId, monthKey, todayTotal, today);
+      }
+    } catch (e) {
+      console.log('Sales record check failed:', e);
+    }
+  };
+
   const submitBill = async () => {
     if (cart.length === 0) {
       setError('Add at least one item before completing the sale');
@@ -176,9 +260,7 @@ const Home = ({ route }: any) => {
 
     try {
       const billId = `${Date.now()}_${staffName}`;
-
       const weights = cart.map(i => i.billAmount);
-
       const discounts = splitProportionally(
         cart.map(i => i.billAmount),
         discountNum,
@@ -234,11 +316,10 @@ const Home = ({ route }: any) => {
           return deductions > 0
             ? {
                 ...sv,
-                stock: sv.stock - deductions,
+                stock: roundStock(sv.stock - deductions),
               }
             : sv;
         });
-
         await updateCategoryStock(shopId, categoryId, updatedSubVarieties);
       }
 
@@ -265,32 +346,14 @@ const Home = ({ route }: any) => {
         });
       }
 
-      try {
-        await printReceipt({
-          shopName,
-          billItems: itemsWithPayment.map(i => ({
-            name: i.subVarietyName,
-            qty: i.pieceInfo || `${i.quantity}${i.unit}`,
-            amount: i.billAmount,
-          })),
-          discount: discountNum,
-          total: cartTotal,
-          paymentMethod: paymentMode,
-          staffName,
-          timestamp: Date.now(),
-        });
-      } catch (e) {
-        console.log('Print skipped or failed:', e);
-      }
-
       setCart([]);
       setBillDiscount('0');
       setNote('');
       setSplitCash('0');
       setSplitGpay('0');
       setShowMoreOptions(false);
-
       await load();
+      await checkSalesRecord();
     } catch (e) {
       setError('Something went wrong, try again');
     } finally {
@@ -301,7 +364,7 @@ const Home = ({ route }: any) => {
   if (loading) {
     return (
       <View style={homeStyles.center}>
-        <ActivityIndicator size="large" color={COLORS.textMuted} />
+        <ChocolateLoader text="Loading..." />
       </View>
     );
   }
@@ -309,7 +372,12 @@ const Home = ({ route }: any) => {
   const subItems = selectedCategory?.subVarieties || [];
 
   return (
-   <ScreenContainer refreshing={refreshing} onRefresh={onRefresh} contentContainerStyle={homeStyles.container}>
+    <View style={homeStyles.homeScreen}>
+      <ScreenContainer
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        contentContainerStyle={homeStyles.container}
+      >
         {/* CART */}
         {cart.length > 0 && (
           <View style={homeStyles.cartWrapper}>
@@ -345,20 +413,16 @@ const Home = ({ route }: any) => {
             contentContainerStyle={homeStyles.quickScroll}
           >
             {quickItems.map(sv => (
-              <TouchableOpacity
+              <AnimatedPressable
                 key={sv.id}
                 style={homeStyles.quickCard}
                 onPress={() =>
                   selectItem(
-                    {
-                      id: sv.categoryId,
-                      name: sv.categoryName,
-                    },
+                    { id: sv.categoryId, name: sv.categoryName },
                     sv,
-                    sv.presetAmounts?.[0],
+                    sv.presetAmounts[0],
                   )
                 }
-                activeOpacity={0.8}
               >
                 <View style={homeStyles.quickIcon}>
                   <Text style={homeStyles.quickIconText}>+</Text>
@@ -372,7 +436,7 @@ const Home = ({ route }: any) => {
                   {formatCurrency(sv.pricePerKg)}
                   /kg
                 </Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             ))}
           </ScrollView>
         )}
@@ -380,23 +444,44 @@ const Home = ({ route }: any) => {
         {/* CATEGORY */}
         <View style={homeStyles.section}>
           <Text style={homeStyles.sectionTitle}>Category</Text>
-
-          <PillGroup
-            options={categories.map(cat => ({
-              key: cat.id,
-              label: cat.name,
-            }))}
-            selectedKey={selectedCategory?.id ?? null}
-            onSelect={key => {
-              const category = categories.find(cat => cat.id === key);
-
-              setSelectedCategory(category);
-              setSelectedSub(null);
-              setGrams('');
-              setCount('1');
-              setError('');
-            }}
-          />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={homeStyles.categoryGridScroll}
+          >
+            <View style={homeStyles.categoryGrid}>
+              {sortedCategories.map(cat => {
+                const active = selectedCategory?.id === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      homeStyles.categoryChip,
+                      active && homeStyles.categoryChipActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedCategory(cat);
+                      setSelectedSub(null);
+                      setGrams('');
+                      setCount('1');
+                      setError('');
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text
+                      style={
+                        active
+                          ? homeStyles.categoryChipTextActive
+                          : homeStyles.categoryChipText
+                      }
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
         </View>
 
         {/* ITEMS */}
@@ -453,8 +538,7 @@ const Home = ({ route }: any) => {
                               active && homeStyles.itemPriceActive,
                             ]}
                           >
-                            {formatCurrency(sv.pricePerKg)}
-                            /kg
+                            {formatCurrency(sv.pricePerKg)}/ {stockUnit}
                           </Text>
                         </View>
 
@@ -680,15 +764,11 @@ const Home = ({ route }: any) => {
             )}
 
             {/* ADD */}
-            <TouchableOpacity
-              style={homeStyles.addBtn}
-              onPress={addToCart}
-              activeOpacity={0.8}
-            >
+            <AnimatedPressable style={homeStyles.addBtn} onPress={addToCart}>
               <Text style={homeStyles.addBtnIcon}>+</Text>
 
               <Text style={homeStyles.addBtnText}>Add to bill</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         )}
 
@@ -791,14 +871,13 @@ const Home = ({ route }: any) => {
             )}
 
             {/* COMPLETE SALE */}
-            <TouchableOpacity
+            <AnimatedPressable
               style={[
                 homeStyles.completeButton,
                 saving && homeStyles.completeButtonDisabled,
               ]}
               onPress={submitBill}
               disabled={saving}
-              activeOpacity={0.8}
             >
               {saving ? (
                 <ActivityIndicator color={COLORS.white} />
@@ -822,12 +901,64 @@ const Home = ({ route }: any) => {
                   </Text>
                 </>
               )}
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         )}
 
         <View style={homeStyles.bottomSpace} />
-    </ScreenContainer>
+      </ScreenContainer>
+      {showRecordCelebration && (
+        <View style={homeStyles.celebrationOverlay} pointerEvents="box-none">
+          <ConfettiCannon
+            count={200}
+            origin={{ x: 200, y: -20 }}
+            fadeOut
+            autoStart
+          />
+
+          <View style={homeStyles.celebrationCard}>
+            {/* Top badge */}
+            <View style={homeStyles.recordBadge}>
+              <Text style={homeStyles.recordBadgeText}>★ SALES RECORD ★</Text>
+            </View>
+
+            {/* Icon */}
+            <View style={homeStyles.trophyCircle}>
+              <Text style={homeStyles.trophyIcon}>🏆</Text>
+            </View>
+
+            {/* Title */}
+            <Text style={homeStyles.celebrationTitle}>New Best Sales Day!</Text>
+
+            <Text style={homeStyles.celebrationSubtitle}>
+              You just reached your highest
+              {'\n'}
+              sales for this month.
+            </Text>
+
+            {/* Amount */}
+            <View style={homeStyles.amountBox}>
+              <Text style={homeStyles.amountLabelAni}>TODAY'S SALES</Text>
+
+              <Text style={homeStyles.celebrationAmount}>
+                {formatCurrency(recordAmount)}
+              </Text>
+            </View>
+
+            <Text style={homeStyles.celebrationMessage}>
+              Great work today — keep it up!
+            </Text>
+
+            {/* Bottom decoration */}
+            <View style={homeStyles.celebrationDivider}>
+              <View style={homeStyles.dividerLine} />
+              <Text style={homeStyles.chocolateMark}>🍫</Text>
+              <View style={homeStyles.dividerLine} />
+            </View>
+          </View>
+        </View>
+      )}
+    </View>
   );
 };
 

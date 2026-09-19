@@ -6,6 +6,7 @@ import {
   initNotifications,
   scheduleDailyCloseReminder,
 } from 'utils/notification';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 const App = () => {
   useEffect(() => {
@@ -13,9 +14,11 @@ const App = () => {
     scheduleDailyCloseReminder(22, 0); // 9:00 PM daily — adjust as you like
   }, []);
   return (
-    <NavigationContainer ref={navigationRef}>
-      <RootPaths />
-    </NavigationContainer>
+    <KeyboardProvider>
+      <NavigationContainer ref={navigationRef}>
+        <RootPaths />
+      </NavigationContainer>
+    </KeyboardProvider>
   );
 };
 

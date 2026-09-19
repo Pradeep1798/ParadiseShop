@@ -5,7 +5,6 @@ export type RootStackScreens = {
   splash: any;
   home: any;
   ShopPicker: any;
-  Pin: any;
   Staff: any;
 };
 
@@ -13,7 +12,6 @@ export const SCREENS = {
   SPLASH: 'splash',
   HOME: 'home',
   SHOP_PICKER: 'ShopPicker',
-  PIN: 'Pin',
   STAFF: 'Staff',
 } as const;
 

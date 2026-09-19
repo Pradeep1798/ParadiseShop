@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  FlatList,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
 import {
   getFirestore,
   doc,
@@ -19,6 +12,8 @@ import ModalOverlay from 'components/ModalOverlay';
 import AppInput from 'components/AppInput';
 import AppButton from 'components/AppButton';
 import { COLORS } from 'theme/Theme';
+import AnimatedPressable from 'components/AnimatedPressable';
+import ChocolateLoader from 'components/ChocolateLoader';
 
 const ShopPicker = ({ navigation }: any) => {
   const [shops, setShops] = useState<{ id: string; name: string }[]>([]);
@@ -61,19 +56,24 @@ const ShopPicker = ({ navigation }: any) => {
       setPinError('Enter your shop PIN');
       return;
     }
+
     setChecking(true);
     setPinError('');
+
     try {
       const db = getFirestore();
       const shopDoc = await getDoc(doc(db, 'shops', pinModalShop!.id));
       const data = shopDoc.data();
+
       if (!data || data.pin !== pin) {
         setPinError('Incorrect PIN, try again');
         setChecking(false);
         return;
       }
+
       const shop = pinModalShop!;
       setPinModalShop(null);
+
       navigation.navigate(SCREENS.STAFF, {
         shopId: shop.id,
         shopName: shop.name,
@@ -90,9 +90,8 @@ const ShopPicker = ({ navigation }: any) => {
       <Text style={styles.title}>Paradise Shop</Text>
       <Text style={styles.subtitle}>Select your shop</Text>
 
-      {loading && (
-        <ActivityIndicator style={{ marginTop: 24 }} color={COLORS.textMuted} />
-      )}
+      {loading && <ChocolateLoader size="medium" text="Loading shops..." />}
+
       {!!error && <Text style={styles.error}>{error}</Text>}
 
       {!loading && !error && (
@@ -101,13 +100,13 @@ const ShopPicker = ({ navigation }: any) => {
           data={shops}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <AnimatedPressable
               style={styles.shopCard}
               onPress={() => openPinModal(item)}
             >
               <Text style={styles.shopName}>{item.name}</Text>
               <Text style={styles.shopArrow}>›</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           )}
           ListEmptyComponent={
             <Text style={styles.empty}>
@@ -145,6 +144,7 @@ const ShopPicker = ({ navigation }: any) => {
             onPress={() => setPinModalShop(null)}
             style={{ flex: 1 }}
           />
+
           <AppButton
             label="Continue"
             loading={checking}
@@ -164,8 +164,19 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 72,
   },
-  title: { fontSize: 26, fontWeight: '700', color: COLORS.cacaoDark },
-  subtitle: { fontSize: 14, color: COLORS.textMuted, marginTop: 4 },
+
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: COLORS.cacaoDark,
+  },
+
+  subtitle: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
+
   shopCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -177,16 +188,37 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 12,
   },
-  shopName: { fontSize: 16, fontWeight: '600', color: COLORS.cacaoDark },
-  shopArrow: { fontSize: 22, color: COLORS.caramel },
-  empty: { color: COLORS.textMuted, textAlign: 'center', marginTop: 40 },
-  error: { color: COLORS.danger, marginTop: 12, textAlign: 'center' },
+
+  shopName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.cacaoDark,
+  },
+
+  shopArrow: {
+    fontSize: 22,
+    color: COLORS.caramel,
+  },
+
+  empty: {
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: 40,
+  },
+
+  error: {
+    color: COLORS.danger,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: COLORS.cacaoDark,
     textAlign: 'center',
   },
+
   modalSubtitle: {
     fontSize: 13,
     color: COLORS.textMuted,
@@ -194,8 +226,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 20,
   },
-  pinInput: { fontSize: 24, letterSpacing: 8, textAlign: 'center' },
-  modalButtonRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
+
+  pinInput: {
+    fontSize: 24,
+    letterSpacing: 8,
+    textAlign: 'center',
+  },
+
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
 });
 
 export default ShopPicker;

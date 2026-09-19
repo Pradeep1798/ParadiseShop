@@ -22,6 +22,8 @@ import AppButton from 'components/AppButton';
 import AppInput from 'components/AppInput';
 import ModalOverlay from 'components/ModalOverlay';
 import PillGroup from 'components/PillGroup';
+import { copyShopCatalogue } from 'services/Service';
+import { COLORS } from 'theme/Theme';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -36,6 +38,8 @@ const Catalogue = ({ route }: any) => {
   const [addingItemTo, setAddingItemTo] = useState<string | null>(null); // categoryId
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [copying, setCopying] = useState(false);
+  const [copyConfirm, setCopyConfirm] = useState(false);
 
   const loadCategories = useCallback(async () => {
     const db = getFirestore();
@@ -117,6 +121,20 @@ const Catalogue = ({ route }: any) => {
       </View>
     );
   }
+
+  const handleCopyFromShopA = async () => {
+    setCopying(true);
+    try {
+      const count = await copyShopCatalogue('shopA', shopId); // adjust 'shopA' to your actual shop A doc ID
+      setCopyConfirm(false);
+      await loadCategories(); // however your Catalogue screen refreshes its list
+      // maybe show a success message with `count` categories copied
+    } catch (e) {
+      console.log('Copy failed:', e);
+    } finally {
+      setCopying(false);
+    }
+  };
 
   return (
     <>
@@ -227,6 +245,37 @@ const Catalogue = ({ route }: any) => {
           onSave={saveNewCategory}
         />
       )}
+      {categories.length === 0 && (
+        <AppButton
+          label={copying ? 'Copying…' : 'Copy Catalogue from Shop A'}
+          onPress={() => setCopyConfirm(true)}
+          loading={copying}
+          variant="outline"
+        />
+      )}
+
+      <ModalOverlay visible={copyConfirm}>
+        <Text style={styles.modalTitle}>Copy Shop A's Catalogue?</Text>
+        <Text style={styles.modalMeta}>
+          This copies every category, product, and price from Shop A into this
+          shop. Stock will start at 0 — you'll need to do a real Stock In
+          afterward.
+        </Text>
+        <View style={styles.modalButtonRow}>
+          <AppButton
+            label="Cancel"
+            variant="outline"
+            onPress={() => setCopyConfirm(false)}
+            style={{ flex: 1 }}
+          />
+          <AppButton
+            label="Copy Now"
+            onPress={handleCopyFromShopA}
+            loading={copying}
+            style={{ flex: 1 }}
+          />
+        </View>
+      </ModalOverlay>
     </>
   );
 };
@@ -443,6 +492,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginTop: 20,
+  },
+  modalMeta: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    marginBottom: 16,
   },
   chevron: { fontSize: 16, color: '#C17A3D' },
   itemRow: {

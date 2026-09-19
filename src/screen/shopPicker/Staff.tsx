@@ -15,6 +15,7 @@ import {
 } from '@react-native-firebase/firestore';
 import { setDeviceSession } from 'utils/HelperFn';
 import { SCREENS } from 'roots/RootStack';
+import ChocolateLoader from 'components/ChocolateLoader';
 
 const Staff = ({ route, navigation }: any) => {
   const { shopId, shopName } = route.params;
@@ -222,6 +223,10 @@ const Staff = ({ route, navigation }: any) => {
                   : `Enter ${passwordPrompt.name}'s password to continue`}
               </Text>
 
+              <Text style={styles.inputLabel}>
+                {wantsToChangePassword ? 'Current Password' : 'Password'}
+              </Text>
+
               <TextInput
                 style={styles.input}
                 value={passwordInput}
@@ -234,17 +239,21 @@ const Staff = ({ route, navigation }: any) => {
                 keyboardType="number-pad"
               />
               {isCreatingPassword && (
-                <TextInput
-                  style={styles.input}
-                  value={confirmPasswordInput}
-                  onChangeText={setConfirmPasswordInput}
-                  placeholder="Confirm password"
-                  secureTextEntry
-                  keyboardType="number-pad"
-                />
+                <>
+                  <Text style={styles.inputLabel}>Confirm Password</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={confirmPasswordInput}
+                    onChangeText={setConfirmPasswordInput}
+                    placeholder="Confirm password"
+                    secureTextEntry
+                    keyboardType="number-pad"
+                  />
+                </>
               )}
               {wantsToChangePassword && (
                 <>
+                  <Text style={styles.inputLabel}>New Password</Text>
                   <TextInput
                     style={styles.input}
                     value={newPasswordInput}
@@ -253,6 +262,8 @@ const Staff = ({ route, navigation }: any) => {
                     secureTextEntry
                     keyboardType="number-pad"
                   />
+
+                  <Text style={styles.inputLabel}>Confirm New Password</Text>
                   <TextInput
                     style={styles.input}
                     value={newConfirmInput}
@@ -404,6 +415,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'black',
     marginBottom: 10,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#5C3620',
+    marginBottom: 6,
   },
   modalButtonRow: { flexDirection: 'row', gap: 10, marginTop: 20 },
   cancelBtn: {

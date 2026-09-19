@@ -20,19 +20,19 @@ import Ionicons, {
 import Home from 'screen/Home/Home';
 import Stock from 'screen/products/Stock';
 import Expense from 'screen/products/expense';
-import Bills from 'screen/products/Bills';
+import Bills from 'screen/Bills/Bills';
 import DailyReports from 'screen/reports/dailyReports';
 import Needs from 'screen/products/Needs';
 import WeeklyReport from 'screen/reports/weeklyreports';
 import PriceList from 'screen/priceList/PriceList';
 import Notifications from 'screen/notification/notications';
-import CloseBill from 'screen/closeBill/CloseBill';
+import CloseBill from 'screen/Bills/CloseBill';
 import Catalogue from 'screen/catalogue/Catalogue';
 
 import { SCREENS, TABSCREENS } from './RootStack';
 import { clearDeviceSession } from 'utils/HelperFn';
 import Attendance from 'screen/reports/Attendance';
-import Voids from 'screen/products/Void';
+import Voids from 'screen/Bills/Void';
 
 const Drawer = createDrawerNavigator();
 

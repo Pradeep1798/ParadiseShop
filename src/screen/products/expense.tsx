@@ -15,6 +15,7 @@ import AppInput from 'components/AppInput';
 import EmptyState from 'components/EmptyState';
 import { addExpense, getExpensesByDateRange } from 'services/Service';
 import { useFocusRefresh } from 'utils/hooks';
+import AnimatedAmount from 'components/AnimatedAmount';
 
 const Expense = ({ route }: any) => {
   const { shopId, staffName } = route.params;
@@ -149,9 +150,7 @@ const Expense = ({ route }: any) => {
         {todaysExpenses.length > 0 && (
           <View style={styles.listTotalRow}>
             <Text style={styles.listTotalLabel}>Total</Text>
-            <Text style={styles.listTotalValue}>
-              {formatCurrency(todaysTotal)}
-            </Text>
+            <AnimatedAmount value={todaysTotal} style={styles.listTotalValue} />
           </View>
         )}
       </Card>

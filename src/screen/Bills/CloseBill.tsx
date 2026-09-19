@@ -26,6 +26,9 @@ import {
   getTransactionsForDate,
 } from 'services/Service';
 import { useFocusRefresh } from 'utils/hooks';
+import ScreenContainer from 'components/ScreenContainer';
+import AnimatedAmount from 'components/AnimatedAmount';
+import ChocolateLoader from 'components/ChocolateLoader';
 
 const CloseBill = ({ route, navigation }: any) => {
   const { shopId, staffName } = route.params || {};
@@ -101,10 +104,10 @@ const CloseBill = ({ route, navigation }: any) => {
     }
   };
 
-  if (loading) {
+ if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.textMuted} />
+        <ChocolateLoader size="medium" text='Loading...'/>
       </View>
     );
   }
@@ -120,7 +123,7 @@ const CloseBill = ({ route, navigation }: any) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScreenContainer style={styles.container}>
       <Text style={styles.title}>Close Today's Bill</Text>
       <Text style={styles.subtitle}>{today}</Text>
 
@@ -165,11 +168,10 @@ const CloseBill = ({ route, navigation }: any) => {
 
       <Card style={styles.finalBox}>
         <Text style={styles.finalLabel}>Final Hand (after adjustment)</Text>
-        <Text style={styles.finalValue}>
-          {formatCurrency(
-            summary.calculatedHand + (Number(excessOrShortage) || 0),
-          )}
-        </Text>
+        <AnimatedAmount
+          value={summary.calculatedHand + (Number(excessOrShortage) || 0)}
+          style={styles.finalValue}
+        />
       </Card>
 
       {!!error && <Text style={styles.error}>{error}</Text>}
@@ -182,7 +184,7 @@ const CloseBill = ({ route, navigation }: any) => {
       />
 
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </ScreenContainer>
   );
 };
 

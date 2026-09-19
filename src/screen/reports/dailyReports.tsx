@@ -25,6 +25,7 @@ import {
 import { useFocusRefresh } from 'utils/hooks';
 import Card from 'components/Card';
 import ScreenContainer from 'components/ScreenContainer';
+import ChocolateLoader from 'components/ChocolateLoader';
 
 const DailyReports = ({ route }: any) => {
   const { shopId } = route.params || {};
@@ -87,7 +88,7 @@ const DailyReports = ({ route }: any) => {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.textMuted} />
+        <ChocolateLoader size="medium" text="Loading reports..." />
       </View>
     );
   }

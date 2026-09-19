@@ -16,6 +16,7 @@ import {
   updateDoc,
 } from '@react-native-firebase/firestore';
 import ScreenContainer from 'components/ScreenContainer';
+import AnimatedPressable from 'components/AnimatedPressable';
 
 const formatDate = (timestamp: number) => {
   const date = new Date(timestamp);
@@ -243,11 +244,10 @@ const Needs = ({ route }: any) => {
             </View>
 
             {(groupItems as any[]).map(item => (
-              <TouchableOpacity
+              <AnimatedPressable
                 key={item.id}
                 style={styles.itemRow}
                 onPress={() => toggleFulfilled(item)}
-                activeOpacity={0.75}
               >
                 <View style={styles.checkbox} />
 
@@ -264,7 +264,7 @@ const Needs = ({ route }: any) => {
                 </View>
 
                 <Text style={styles.itemArrow}>›</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             ))}
           </View>
         ))}
@@ -299,11 +299,10 @@ const Needs = ({ route }: any) => {
           )}
 
           {fulfilled.map(item => (
-            <TouchableOpacity
+            <AnimatedPressable
               key={item.id}
               style={styles.itemRow}
               onPress={() => toggleFulfilled(item)}
-              activeOpacity={0.75}
             >
               <View style={[styles.checkbox, styles.checkboxChecked]}>
                 <Text style={styles.checkmark}>✓</Text>
@@ -324,7 +323,7 @@ const Needs = ({ route }: any) => {
               </View>
 
               <Text style={styles.itemArrow}>›</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           ))}
         </View>
       )}
