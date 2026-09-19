@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import StatRow from 'components/StatRow';
 import EmptyState from 'components/EmptyState';
 import { COLORS, SPACING, FONT_SIZE } from 'theme/Theme';
@@ -35,6 +35,8 @@ interface DailyReportRow {
 const DailyReports = ({ route }: { route: { params?: { shopId?: string } } }) => {
   const { shopId } = route.params || {};
   const [rows, setRows] = useState<DailyReportRow[]>([]);
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const getMonthStart = () => {
     const now = new Date();
@@ -101,49 +103,55 @@ const DailyReports = ({ route }: { route: { params?: { shopId?: string } } }) =>
     );
   }
 
+  const renderReportCard = (row: DailyReportRow) => (
+    <Card key={row.date} style={isTablet ? styles.tabletCard : undefined}>
+      <Text style={styles.date}>{row.date}</Text>
+      <StatRow label="Sale" value={row.sale} tone="income" />
+      <StatRow label="GPay" value={row.gpay} tone="income" />
+
+      <Text style={styles.expenseHeading}>Expense</Text>
+      {Object.keys(row.expenseByDesc).length === 0 && (
+        <Text style={styles.subRowText}>- none -</Text>
+      )}
+      {Object.entries(row.expenseByDesc).map(([desc, amt]) => (
+        <View key={desc} style={styles.subRow}>
+          <Text style={styles.subRowText}>{desc}</Text>
+          <Text style={styles.subRowValue}>{formatMoney(amt)}</Text>
+        </View>
+      ))}
+
+      <View style={styles.divider} />
+
+      {row.excessOrShortage !== null && row.excessOrShortage !== 0 && (
+        <StatRow
+          label={row.excessOrShortage > 0 ? 'Excess' : 'Shortage'}
+          value={Math.abs(row.excessOrShortage)}
+          tone={row.excessOrShortage > 0 ? 'income' : 'expense'}
+        />
+      )}
+      {!!row.closingNote && (
+        <Text style={styles.closingNoteText}>Note: {row.closingNote}</Text>
+      )}
+
+      <StatRow label="Hand" value={row.hand} tone="neutral" bold />
+    </Card>
+  );
+
   return (
-    <ScreenContainer onRefresh={onRefresh} refreshing={refreshing}>
+    <ScreenContainer
+      onRefresh={onRefresh}
+      refreshing={refreshing}
+      allowWideContent={isTablet}
+    >
       <Text style={styles.title}>Reports</Text>
 
       {rows.length === 0 && (
         <EmptyState text="No sales or expenses recorded yet." />
       )}
 
-      {rows.map(row => (
-        <Card key={row.date}>
-          <Text style={styles.date}>{row.date}</Text>
-          <StatRow label="Sale" value={row.sale} tone="income" />
-          <StatRow label="GPay" value={row.gpay} tone="income" />
-
-          <Text style={styles.expenseHeading}>Expense</Text>
-          {Object.keys(row.expenseByDesc).length === 0 && (
-            <Text style={styles.subRowText}>— none —</Text>
-          )}
-          {Object.entries(row.expenseByDesc).map(([desc, amt]) => (
-            <View key={desc} style={styles.subRow}>
-              <Text style={styles.subRowText}>{desc}</Text>
-              <Text style={styles.subRowValue}>
-                {formatMoney(amt as number)}
-              </Text>
-            </View>
-          ))}
-
-          <View style={styles.divider} />
-
-          {row.excessOrShortage !== null && row.excessOrShortage !== 0 && (
-            <StatRow
-              label={row.excessOrShortage > 0 ? 'Excess' : 'Shortage'}
-              value={Math.abs(row.excessOrShortage)}
-              tone={row.excessOrShortage > 0 ? 'income' : 'expense'}
-            />
-          )}
-          {!!row.closingNote && (
-            <Text style={styles.closingNoteText}>📝 {row.closingNote}</Text>
-          )}
-
-          <StatRow label="Hand" value={row.hand} tone="neutral" bold />
-        </Card>
-      ))}
+      <View style={isTablet ? styles.tabletGrid : undefined}>
+        {rows.map(renderReportCard)}
+      </View>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>
@@ -205,6 +213,14 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 4,
     marginBottom: 4,
+  },
+  tabletGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  tabletCard: {
+    width: '48.5%',
   },
 });
 

@@ -5,6 +5,7 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { getStockUnitLabel } from 'utils/HelperFn';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -57,6 +58,8 @@ const Notifications = ({
   route: { params?: { shopId?: string } };
 }) => {
   const { shopId } = route.params || {};
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
   const [todaySummary, setTodaySummary] = useState<TodaySummary | null>(null);
   const [recentReports, setRecentReports] = useState<ReportHistoryEntry[]>([]);
@@ -119,56 +122,73 @@ const Notifications = ({
   }
 
   return (
-    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
+    <ScreenContainer
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      allowWideContent={isTablet}
+    >
       <Text style={styles.title}>Notifications</Text>
 
-      <Card>
-        <Text style={styles.cardTitle}>⚠️ Low Stock ({lowStock.length})</Text>
-        {lowStock.length === 0 && (
-          <EmptyState text="Everything is comfortably stocked." />
-        )}
-        {lowStock.map((item, i) => (
-          <View key={i} style={styles.row}>
-            <Text style={styles.rowText}>
-              {item.category} — {item.name}
+      <View style={isTablet ? styles.tabletColumns : undefined}>
+        <View style={isTablet ? styles.tabletLeftColumn : undefined}>
+          <Card>
+            <Text style={styles.cardTitle}>
+              ⚠️ Low Stock ({lowStock.length})
             </Text>
-            <Text style={styles.rowValueLow}>
-              {item.stock.toFixed(2)}
-              {getStockUnitLabel(item.unit)}
-            </Text>
-          </View>
-        ))}
-      </Card>
+            {lowStock.length === 0 && (
+              <EmptyState text="Everything is comfortably stocked." />
+            )}
+            {lowStock.map((item, i) => (
+              <View key={i} style={styles.row}>
+                <Text style={styles.rowText}>
+                  {item.category} — {item.name}
+                </Text>
+                <Text style={styles.rowValueLow}>
+                  {item.stock.toFixed(2)}
+                  {getStockUnitLabel(item.unit)}
+                </Text>
+              </View>
+            ))}
+          </Card>
+        </View>
 
-      {todaySummary && (
-        <Card>
-          <Text style={styles.cardTitle}>📋 Today So Far</Text>
-          <StatRow label="Sale" value={todaySummary.sale} tone="income" />
-          <StatRow label="Cash" value={todaySummary.cash} tone="income" />
-          <StatRow label="GPay" value={todaySummary.gpay} tone="income" />
-          <StatRow
-            label="Expenses"
-            value={todaySummary.expenseTotal}
-            tone="expense"
-          />
-          <StatRow label="Hand" value={todaySummary.hand} tone="neutral" bold />
-        </Card>
-      )}
+        <View style={isTablet ? styles.tabletRightColumn : undefined}>
+          {todaySummary && (
+            <Card>
+              <Text style={styles.cardTitle}>📋 Today So Far</Text>
+              <StatRow label="Sale" value={todaySummary.sale} tone="income" />
+              <StatRow label="Cash" value={todaySummary.cash} tone="income" />
+              <StatRow label="GPay" value={todaySummary.gpay} tone="income" />
+              <StatRow
+                label="Expenses"
+                value={todaySummary.expenseTotal}
+                tone="expense"
+              />
+              <StatRow
+                label="Hand"
+                value={todaySummary.hand}
+                tone="neutral"
+                bold
+              />
+            </Card>
+          )}
 
-      <Card>
-        <Text style={styles.cardTitle}>📄 Recent Reports</Text>
-        {recentReports.length === 0 && (
-          <EmptyState text="No reports generated yet." />
-        )}
-        {recentReports.map(r => (
-          <View key={r.id} style={styles.row}>
-            <Text style={styles.rowText}>{r.label}</Text>
-            <Text style={styles.rowValue}>
-              {new Date(r.generatedAt).toLocaleDateString()}
-            </Text>
-          </View>
-        ))}
-      </Card>
+          <Card>
+            <Text style={styles.cardTitle}>📄 Recent Reports</Text>
+            {recentReports.length === 0 && (
+              <EmptyState text="No reports generated yet." />
+            )}
+            {recentReports.map(r => (
+              <View key={r.id} style={styles.row}>
+                <Text style={styles.rowText}>{r.label}</Text>
+                <Text style={styles.rowValue}>
+                  {new Date(r.generatedAt).toLocaleDateString()}
+                </Text>
+              </View>
+            ))}
+          </Card>
+        </View>
+      </View>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>
@@ -193,6 +213,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.cacaoDark,
     marginBottom: 16,
+  },
+  tabletColumns: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  tabletLeftColumn: {
+    flex: 1,
+    marginRight: 8,
+  },
+  tabletRightColumn: {
+    flex: 1,
+    marginLeft: 8,
   },
   cardTitle: {
     fontSize: 14,

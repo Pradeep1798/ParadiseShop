@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 
 import { computeStockDelta, formatCurrency } from 'utils/HelperFn';
@@ -47,6 +48,8 @@ import {
 
 const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
   const { shopId, staffName, role } = route.params;
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const [bills, setBills] = useState<BillRecord[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [returningItem, setReturningItem] = useState<BillItem | null>(null);
@@ -379,7 +382,11 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
 
   return (
     <>
-      <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
+      <ScreenContainer
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        allowWideContent={isTablet}
+      >
         <View style={BillStyles.dateNav}>
           <TouchableOpacity
             onPress={() => changeDay(-1)}
@@ -461,172 +468,186 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
 
         {bills.length === 0 && <EmptyState text="No sales yet today." />}
 
-        {filteredBills.map(bill => {
-          const billDiscountTotal = bill.items.reduce(
-            (sum: number, i) => sum + (i.discount || 0),
-            0,
-          );
-          const billExcessTotal = bill.items.reduce(
-            (sum: number, i) => sum + (i.excess || 0),
-            0,
-          );
-          const isVoided = bill.items.every(i => i.voided);
+        <View style={isTablet ? BillStyles.tabletGrid : undefined}>
+          {filteredBills.map(bill => {
+            const billDiscountTotal = bill.items.reduce(
+              (sum: number, i) => sum + (i.discount || 0),
+              0,
+            );
+            const billExcessTotal = bill.items.reduce(
+              (sum: number, i) => sum + (i.excess || 0),
+              0,
+            );
+            const isVoided = bill.items.every(i => i.voided);
 
-          return (
-            <Card
-              key={bill.billId}
-              style={isVoided ? BillStyles.voidedCard : undefined}
-            >
-              {isVoided && <Text style={BillStyles.voidedBadge}>VOIDED</Text>}
+            return (
+              <Card
+                key={bill.billId}
+                style={[
+                  isTablet && BillStyles.tabletCard,
+                  isVoided && BillStyles.voidedCard,
+                ]}
+              >
+                {isVoided && <Text style={BillStyles.voidedBadge}>VOIDED</Text>}
 
-              {bill.items.map((item, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={BillStyles.itemRow}
-                  onPress={() =>
-                    item.returnedQty < item.quantity &&
-                    openReturn({ ...item, billId: bill.billId })
-                  }
-                  disabled={item.returnedQty >= item.quantity}
-                  activeOpacity={item.returnedQty < item.quantity ? 0.7 : 1}
-                >
-                  <Text style={BillStyles.itemText}>
-                    {item.subVarietyName} ({item.quantity} {item.unit})
-                    {item.returnedQty > 0
-                      ? ` — ${item.returnedQty}${item.unit} returned`
-                      : ''}
-                  </Text>
-                  <Text style={BillStyles.itemAmount}>
-                    {formatCurrency(item.billAmount ?? item.finalAmount)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-
-              {billDiscountTotal > 0 && (
-                <View style={BillStyles.itemRow}>
-                  <Text style={[BillStyles.itemText, BillStyles.discountText]}>
-                    Discount
-                  </Text>
-                  <Text
-                    style={[BillStyles.itemAmount, BillStyles.discountText]}
-                  >
-                    -{formatCurrency(billDiscountTotal)}
-                  </Text>
-                </View>
-              )}
-
-              {billExcessTotal > 0 && (
-                <View style={BillStyles.itemRow}>
-                  <Text style={[BillStyles.itemText, BillStyles.excessText]}>
-                    Excess
-                  </Text>
-                  <Text style={[BillStyles.itemAmount, BillStyles.excessText]}>
-                    +{formatCurrency(billExcessTotal)}
-                  </Text>
-                </View>
-              )}
-
-              {!!bill.items[0]?.note && (
-                <Text style={BillStyles.noteText}>📝 {bill.items[0].note}</Text>
-              )}
-
-              <View style={BillStyles.footerRow}>
-                <View style={BillStyles.leftGroup}>
-                  {editingPayment === bill.billId ? (
-                    <View style={BillStyles.paymentEditRow}>
-                      <TouchableOpacity
-                        style={[BillStyles.badge, BillStyles.badgeCash]}
-                        onPress={() => updateBillPayment(bill, 'cash')}
-                        disabled={paymentSaving}
-                        activeOpacity={0.75}
-                      >
-                        <Text
-                          style={[
-                            BillStyles.badgeText,
-                            BillStyles.badgeTextCash,
-                          ]}
-                        >
-                          Cash
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[BillStyles.badge, BillStyles.badgeGpay]}
-                        onPress={() => updateBillPayment(bill, 'gpay')}
-                        disabled={paymentSaving}
-                        activeOpacity={0.75}
-                      >
-                        <Text
-                          style={[
-                            BillStyles.badgeText,
-                            BillStyles.badgeTextGpay,
-                          ]}
-                        >
-                          GPay
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => setEditingPayment(bill.billId)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={BillStyles.paymentBadgeContent}>
-                        <Text
-                          style={[
-                            BillStyles.badgeText,
-                            bill.paymentMethod === 'gpay'
-                              ? BillStyles.badgeTextGpay
-                              : bill.paymentMethod === 'split'
-                              ? BillStyles.badgeTextSplit
-                              : BillStyles.badgeTextCash,
-                          ]}
-                        >
-                          {bill.paymentMethod === 'split'
-                            ? 'Split'
-                            : bill.paymentMethod === 'gpay'
-                            ? 'GPay'
-                            : 'Cash'}
-                        </Text>
-                        <Text style={BillStyles.editIcon}>✎</Text>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                  <Text style={BillStyles.staffName} numberOfLines={1}>
-                    {bill.staffName} · {formatTime(bill.timestamp)}
-                  </Text>
-                </View>
-                <AnimatedAmount value={bill.total} style={BillStyles.amount} />
-              </View>
-
-              <View style={BillStyles.cardActionsRow}>
-                <TouchableOpacity
-                  style={BillStyles.printButton}
-                  onPress={() => handlePrint(bill)}
-                  disabled={printingBillId === bill.billId}
-                  activeOpacity={0.75}
-                >
-                  <Text style={BillStyles.printButtonText}>
-                    {printingBillId === bill.billId ? 'Printing…' : '🖨 Print'}
-                  </Text>
-                </TouchableOpacity>
-
-                {!isVoided && canRequestVoid && (
+                {bill.items.map((item, i) => (
                   <TouchableOpacity
-                    style={BillStyles.voidButton}
-                    onPress={() => openVoid(bill)}
+                    key={i}
+                    style={BillStyles.itemRow}
+                    onPress={() =>
+                      item.returnedQty < item.quantity &&
+                      openReturn({ ...item, billId: bill.billId })
+                    }
+                    disabled={item.returnedQty >= item.quantity}
+                    activeOpacity={item.returnedQty < item.quantity ? 0.7 : 1}
+                  >
+                    <Text style={BillStyles.itemText}>
+                      {item.subVarietyName} ({item.quantity} {item.unit})
+                      {item.returnedQty > 0
+                        ? ` — ${item.returnedQty}${item.unit} returned`
+                        : ''}
+                    </Text>
+                    <Text style={BillStyles.itemAmount}>
+                      {formatCurrency(item.billAmount ?? item.finalAmount)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+
+                {billDiscountTotal > 0 && (
+                  <View style={BillStyles.itemRow}>
+                    <Text
+                      style={[BillStyles.itemText, BillStyles.discountText]}
+                    >
+                      Discount
+                    </Text>
+                    <Text
+                      style={[BillStyles.itemAmount, BillStyles.discountText]}
+                    >
+                      -{formatCurrency(billDiscountTotal)}
+                    </Text>
+                  </View>
+                )}
+
+                {billExcessTotal > 0 && (
+                  <View style={BillStyles.itemRow}>
+                    <Text style={[BillStyles.itemText, BillStyles.excessText]}>
+                      Excess
+                    </Text>
+                    <Text
+                      style={[BillStyles.itemAmount, BillStyles.excessText]}
+                    >
+                      +{formatCurrency(billExcessTotal)}
+                    </Text>
+                  </View>
+                )}
+
+                {!!bill.items[0]?.note && (
+                  <Text style={BillStyles.noteText}>
+                    📝 {bill.items[0].note}
+                  </Text>
+                )}
+
+                <View style={BillStyles.footerRow}>
+                  <View style={BillStyles.leftGroup}>
+                    {editingPayment === bill.billId ? (
+                      <View style={BillStyles.paymentEditRow}>
+                        <TouchableOpacity
+                          style={[BillStyles.badge, BillStyles.badgeCash]}
+                          onPress={() => updateBillPayment(bill, 'cash')}
+                          disabled={paymentSaving}
+                          activeOpacity={0.75}
+                        >
+                          <Text
+                            style={[
+                              BillStyles.badgeText,
+                              BillStyles.badgeTextCash,
+                            ]}
+                          >
+                            Cash
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[BillStyles.badge, BillStyles.badgeGpay]}
+                          onPress={() => updateBillPayment(bill, 'gpay')}
+                          disabled={paymentSaving}
+                          activeOpacity={0.75}
+                        >
+                          <Text
+                            style={[
+                              BillStyles.badgeText,
+                              BillStyles.badgeTextGpay,
+                            ]}
+                          >
+                            GPay
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => setEditingPayment(bill.billId)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={BillStyles.paymentBadgeContent}>
+                          <Text
+                            style={[
+                              BillStyles.badgeText,
+                              bill.paymentMethod === 'gpay'
+                                ? BillStyles.badgeTextGpay
+                                : bill.paymentMethod === 'split'
+                                ? BillStyles.badgeTextSplit
+                                : BillStyles.badgeTextCash,
+                            ]}
+                          >
+                            {bill.paymentMethod === 'split'
+                              ? 'Split'
+                              : bill.paymentMethod === 'gpay'
+                              ? 'GPay'
+                              : 'Cash'}
+                          </Text>
+                          <Text style={BillStyles.editIcon}>✎</Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                    <Text style={BillStyles.staffName} numberOfLines={1}>
+                      {bill.staffName} · {formatTime(bill.timestamp)}
+                    </Text>
+                  </View>
+                  <AnimatedAmount
+                    value={bill.total}
+                    style={BillStyles.amount}
+                  />
+                </View>
+
+                <View style={BillStyles.cardActionsRow}>
+                  <TouchableOpacity
+                    style={BillStyles.printButton}
+                    onPress={() => handlePrint(bill)}
+                    disabled={printingBillId === bill.billId}
                     activeOpacity={0.75}
                   >
-                    <Text style={BillStyles.voidButtonText}>Void bill</Text>
+                    <Text style={BillStyles.printButtonText}>
+                      {printingBillId === bill.billId ? 'Printing…' : '🖨 Print'}
+                    </Text>
                   </TouchableOpacity>
-                )}
-              </View>
 
-              {printError && printingBillId === null && (
-                <Text style={BillStyles.error}>{printError}</Text>
-              )}
-            </Card>
-          );
-        })}
+                  {!isVoided && canRequestVoid && (
+                    <TouchableOpacity
+                      style={BillStyles.voidButton}
+                      onPress={() => openVoid(bill)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={BillStyles.voidButtonText}>Void bill</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {printError && printingBillId === null && (
+                  <Text style={BillStyles.error}>{printError}</Text>
+                )}
+              </Card>
+            );
+          })}
+        </View>
 
         <View style={BillStyles.bottomSpace} />
       </ScreenContainer>

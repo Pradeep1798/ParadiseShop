@@ -14,6 +14,7 @@ interface Props {
   onRefresh?: () => void;
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
+  allowWideContent?: boolean;
 }
 const MAX_CONTENT_WIDTH = 480; // roughly phone-width, feels natural, prevents stretch
 
@@ -23,6 +24,7 @@ const ScreenContainer = ({
   onRefresh,
   style,
   contentContainerStyle,
+  allowWideContent = false,
 }: Props) => {
   const { width } = useWindowDimensions();
   const isWide = width > MAX_CONTENT_WIDTH;
@@ -32,11 +34,12 @@ const ScreenContainer = ({
       style={[styles.container, style]}
       contentContainerStyle={[
         contentContainerStyle,
-        isWide && {
-          maxWidth: MAX_CONTENT_WIDTH,
-          alignSelf: 'center',
-          width: '100%',
-        },
+        isWide &&
+          !allowWideContent && {
+            maxWidth: MAX_CONTENT_WIDTH,
+            alignSelf: 'center',
+            width: '100%',
+          },
       ]}
       keyboardShouldPersistTaps="handled"
       bottomOffset={20}

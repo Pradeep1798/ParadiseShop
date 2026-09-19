@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 
 import {
@@ -27,6 +28,8 @@ import { Category, SubVariety } from 'types/Domain';
 
 const PriceList = ({ route }: { route: { params?: { shopId?: string } } }) => {
   const { shopId } = route.params || {};
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,51 +73,63 @@ const PriceList = ({ route }: { route: { params?: { shopId?: string } } }) => {
   }
 
   return (
-    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
+    <ScreenContainer
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      allowWideContent={isTablet}
+    >
       {categories.length === 0 && <EmptyState text="No products found." />}
 
-      {categories.map(cat => {
-        const isOpen = !!expanded[cat.id];
+      <View style={isTablet ? styles.tabletGrid : undefined}>
+        {categories.map(cat => {
+          const isOpen = !!expanded[cat.id];
 
-        return (
-          <Card key={cat.id} style={styles.categoryCard}>
-            <TouchableOpacity
-              style={styles.categoryHeader}
-              onPress={() => toggleCategory(cat.id)}
-              activeOpacity={0.75}
+          return (
+            <Card
+              key={cat.id}
+              style={[
+                styles.categoryCard,
+                isTablet && styles.tabletCategoryCard,
+              ]}
             >
-              <Text style={styles.categoryName}>{cat.name}</Text>
+              <TouchableOpacity
+                style={styles.categoryHeader}
+                onPress={() => toggleCategory(cat.id)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.categoryName}>{cat.name}</Text>
 
-              <Text style={styles.chevron}>{isOpen ? '▾' : '▸'}</Text>
-            </TouchableOpacity>
+                <Text style={styles.chevron}>{isOpen ? '▾' : '▸'}</Text>
+              </TouchableOpacity>
 
-            {isOpen &&
-              cat.subVarieties.map((sv: SubVariety) => (
-                <View key={sv.id} style={styles.itemRow}>
-                  <Text style={styles.itemName}>{sv.name}</Text>
+              {isOpen &&
+                cat.subVarieties.map((sv: SubVariety) => (
+                  <View key={sv.id} style={styles.itemRow}>
+                    <Text style={styles.itemName}>{sv.name}</Text>
 
-                  <View style={styles.priceWrap}>
-                    {sv.presetAmounts && sv.presetAmounts.length > 0 ? (
-                      sv.presetAmounts.map((amt: number) => (
-                        <Text key={amt} style={styles.priceTag}>
-                          {amt}
-                          {getQuantityUnitLabel(sv.unit)} — ₹
-                          {formatCurrency(
-                            computeAmount(sv.unit, amt, sv.pricePerKg),
-                          )}
+                    <View style={styles.priceWrap}>
+                      {sv.presetAmounts && sv.presetAmounts.length > 0 ? (
+                        sv.presetAmounts.map((amt: number) => (
+                          <Text key={amt} style={styles.priceTag}>
+                            {amt}
+                            {getQuantityUnitLabel(sv.unit)} — ₹
+                            {formatCurrency(
+                              computeAmount(sv.unit, amt, sv.pricePerKg),
+                            )}
+                          </Text>
+                        ))
+                      ) : (
+                        <Text style={styles.priceTag}>
+                          {formatCurrency(sv.pricePerKg)} / kg
                         </Text>
-                      ))
-                    ) : (
-                      <Text style={styles.priceTag}>
-                        {formatCurrency(sv.pricePerKg)} / kg
-                      </Text>
-                    )}
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
-          </Card>
-        );
-      })}
+                ))}
+            </Card>
+          );
+        })}
+      </View>
 
       <View style={styles.bottomSpace} />
     </ScreenContainer>
@@ -132,6 +147,16 @@ const styles = StyleSheet.create({
   categoryCard: {
     padding: 0,
     overflow: 'hidden',
+  },
+
+  tabletGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+
+  tabletCategoryCard: {
+    width: '48.5%',
   },
 
   categoryHeader: {

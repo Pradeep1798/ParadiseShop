@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import {
   getFirestore,
@@ -54,6 +55,8 @@ const Needs = ({
   route: { params: { shopId: string; staffName: string } };
 }) => {
   const { shopId, staffName } = route.params;
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const [itemName, setItemName] = useState('');
   const [note, setNote] = useState('');
@@ -163,186 +166,199 @@ const Needs = ({
   }
 
   return (
-    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
+    <ScreenContainer
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      allowWideContent={isTablet}
+    >
       {/* Header */}
       <View style={styles.headerSection}>
         <Text style={styles.title}>Needed Items</Text>
         <Text style={styles.subtitle}>Anything running low? Add it here.</Text>
       </View>
 
-      {/* Add Item Form */}
-      <View style={styles.formCard}>
-        <Text style={styles.formTitle}>Add an item</Text>
+      <View style={isTablet ? styles.tabletRow : undefined}>
+        <View style={isTablet ? styles.tabletFormColumn : undefined}>
+          {/* Add Item Form */}
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>Add an item</Text>
 
-        <Text style={styles.label}>Header</Text>
-        <TextInput
-          style={styles.input}
-          value={header}
-          onChangeText={setHeader}
-          placeholder="e.g. Nuts, Mold"
-          placeholderTextColor="#B5A08A"
-        />
+            <Text style={styles.label}>Header</Text>
+            <TextInput
+              style={styles.input}
+              value={header}
+              onChangeText={setHeader}
+              placeholder="e.g. Nuts, Mold"
+              placeholderTextColor="#B5A08A"
+            />
 
-        <Text style={styles.label}>Item</Text>
-        <TextInput
-          style={styles.input}
-          value={itemName}
-          onChangeText={setItemName}
-          placeholder="e.g. wafer roll boxes, cashew bits"
-          placeholderTextColor="#B5A08A"
-        />
+            <Text style={styles.label}>Item</Text>
+            <TextInput
+              style={styles.input}
+              value={itemName}
+              onChangeText={setItemName}
+              placeholder="e.g. wafer roll boxes, cashew bits"
+              placeholderTextColor="#B5A08A"
+            />
 
-        <Text style={styles.label}>Note</Text>
-        <TextInput
-          style={styles.input}
-          value={note}
-          onChangeText={setNote}
-          placeholder="e.g. need at least 5kg"
-          placeholderTextColor="#B5A08A"
-        />
+            <Text style={styles.label}>Note</Text>
+            <TextInput
+              style={styles.input}
+              value={note}
+              onChangeText={setNote}
+              placeholder="e.g. need at least 5kg"
+              placeholderTextColor="#B5A08A"
+            />
 
-        {!!error && (
-          <View style={styles.errorBox}>
-            <Text style={styles.error}>{error}</Text>
+            {!!error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.error}>{error}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.addBtn, saving && styles.addBtnDisabled]}
+              onPress={addItem}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.addIcon}>+</Text>
+                  <Text style={styles.addBtnText}>Add to list</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.addBtn, saving && styles.addBtnDisabled]}
-          onPress={addItem}
-          disabled={saving}
-          activeOpacity={0.8}
-        >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Text style={styles.addIcon}>+</Text>
-              <Text style={styles.addBtnText}>Add to list</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Pending */}
-      <View style={styles.sectionHeader}>
-        <View>
-          <Text style={styles.sectionTitle}>Pending</Text>
-          <Text style={styles.sectionSubtitle}>
-            {pending.length === 0
-              ? 'Nothing needed right now'
-              : `${pending.length} item${
-                  pending.length !== 1 ? 's' : ''
-                } to buy`}
-          </Text>
         </View>
 
-        <View style={styles.countBadge}>
-          <Text style={styles.countBadgeText}>{pending.length}</Text>
-        </View>
-      </View>
-
-      <View style={styles.listBox}>
-        {pending.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>✓</Text>
-            <Text style={styles.emptyTitle}>All caught up</Text>
-            <Text style={styles.empty}>Nothing needed right now.</Text>
-          </View>
-        )}
-
-        {Object.entries(pendingGrouped).map(([headerName, groupItems]) => (
-          <View key={headerName} style={styles.group}>
-            <View style={styles.groupHeaderRow}>
-              <Text style={styles.groupHeader}>{headerName}</Text>
-
-              <View style={styles.groupLine} />
+        <View style={isTablet ? styles.tabletListColumn : undefined}>
+          {/* Pending */}
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Pending</Text>
+              <Text style={styles.sectionSubtitle}>
+                {pending.length === 0
+                  ? 'Nothing needed right now'
+                  : `${pending.length} item${
+                      pending.length !== 1 ? 's' : ''
+                    } to buy`}
+              </Text>
             </View>
 
-            {groupItems.map(item => (
-              <AnimatedPressable
-                key={item.id}
-                style={styles.itemRow}
-                onPress={() => toggleFulfilled(item)}
-              >
-                <View style={styles.checkbox} />
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{pending.length}</Text>
+            </View>
+          </View>
 
-                <View style={styles.itemContent}>
-                  <Text style={styles.itemName}>{item.itemName}</Text>
+          <View style={styles.listBox}>
+            {pending.length === 0 && (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>✓</Text>
+                <Text style={styles.emptyTitle}>All caught up</Text>
+                <Text style={styles.empty}>Nothing needed right now.</Text>
+              </View>
+            )}
 
-                  {!!item.note && (
-                    <Text style={styles.itemNote}>{item.note}</Text>
-                  )}
+            {Object.entries(pendingGrouped).map(([headerName, groupItems]) => (
+              <View key={headerName} style={styles.group}>
+                <View style={styles.groupHeaderRow}>
+                  <Text style={styles.groupHeader}>{headerName}</Text>
 
-                  <Text style={styles.itemMeta}>
-                    Added by {item.addedBy} · {formatDate(item.timestamp)}
-                  </Text>
+                  <View style={styles.groupLine} />
                 </View>
 
-                <Text style={styles.itemArrow}>›</Text>
-              </AnimatedPressable>
+                {groupItems.map(item => (
+                  <AnimatedPressable
+                    key={item.id}
+                    style={styles.itemRow}
+                    onPress={() => toggleFulfilled(item)}
+                  >
+                    <View style={styles.checkbox} />
+
+                    <View style={styles.itemContent}>
+                      <Text style={styles.itemName}>{item.itemName}</Text>
+
+                      {!!item.note && (
+                        <Text style={styles.itemNote}>{item.note}</Text>
+                      )}
+
+                      <Text style={styles.itemMeta}>
+                        Added by {item.addedBy} · {formatDate(item.timestamp)}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.itemArrow}>›</Text>
+                  </AnimatedPressable>
+                ))}
+              </View>
             ))}
           </View>
-        ))}
-      </View>
 
-      {/* Bought Toggle */}
-      <TouchableOpacity
-        onPress={() => setShowFulfilled(s => !s)}
-        style={styles.toggleLink}
-        activeOpacity={0.7}
-      >
-        <View style={styles.toggleInner}>
-          <Text style={styles.toggleLinkText}>
-            {showFulfilled ? 'Hide' : 'Show'} bought items
-          </Text>
+          {/* Bought Toggle */}
+          <TouchableOpacity
+            onPress={() => setShowFulfilled(s => !s)}
+            style={styles.toggleLink}
+            activeOpacity={0.7}
+          >
+            <View style={styles.toggleInner}>
+              <Text style={styles.toggleLinkText}>
+                {showFulfilled ? 'Hide' : 'Show'} bought items
+              </Text>
 
-          <View style={styles.boughtCount}>
-            <Text style={styles.boughtCountText}>{fulfilled.length}</Text>
-          </View>
+              <View style={styles.boughtCount}>
+                <Text style={styles.boughtCountText}>{fulfilled.length}</Text>
+              </View>
 
-          <Text style={styles.toggleArrow}>{showFulfilled ? '⌃' : '⌄'}</Text>
-        </View>
-      </TouchableOpacity>
+              <Text style={styles.toggleArrow}>
+                {showFulfilled ? '⌃' : '⌄'}
+              </Text>
+            </View>
+          </TouchableOpacity>
 
-      {/* Bought Items */}
-      {showFulfilled && (
-        <View style={styles.boughtSection}>
-          {fulfilled.length === 0 && (
-            <View style={styles.emptyBought}>
-              <Text style={styles.empty}>Nothing marked bought yet.</Text>
+          {/* Bought Items */}
+          {showFulfilled && (
+            <View style={styles.boughtSection}>
+              {fulfilled.length === 0 && (
+                <View style={styles.emptyBought}>
+                  <Text style={styles.empty}>Nothing marked bought yet.</Text>
+                </View>
+              )}
+
+              {fulfilled.map(item => (
+                <AnimatedPressable
+                  key={item.id}
+                  style={styles.itemRow}
+                  onPress={() => toggleFulfilled(item)}
+                >
+                  <View style={[styles.checkbox, styles.checkboxChecked]}>
+                    <Text style={styles.checkmark}>✓</Text>
+                  </View>
+
+                  <View style={styles.itemContent}>
+                    <Text style={[styles.itemName, styles.itemNameDone]}>
+                      {item.itemName}
+                    </Text>
+
+                    {!!item.note && (
+                      <Text style={styles.itemNote}>{item.note}</Text>
+                    )}
+
+                    <Text style={styles.itemMeta}>
+                      Bought by {item.fulfilledBy} ·{' '}
+                      {formatDate(item.fulfilledAt)}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.itemArrow}>›</Text>
+                </AnimatedPressable>
+              ))}
             </View>
           )}
-
-          {fulfilled.map(item => (
-            <AnimatedPressable
-              key={item.id}
-              style={styles.itemRow}
-              onPress={() => toggleFulfilled(item)}
-            >
-              <View style={[styles.checkbox, styles.checkboxChecked]}>
-                <Text style={styles.checkmark}>✓</Text>
-              </View>
-
-              <View style={styles.itemContent}>
-                <Text style={[styles.itemName, styles.itemNameDone]}>
-                  {item.itemName}
-                </Text>
-
-                {!!item.note && (
-                  <Text style={styles.itemNote}>{item.note}</Text>
-                )}
-
-                <Text style={styles.itemMeta}>
-                  Bought by {item.fulfilledBy} · {formatDate(item.fulfilledAt)}
-                </Text>
-              </View>
-
-              <Text style={styles.itemArrow}>›</Text>
-            </AnimatedPressable>
-          ))}
         </View>
-      )}
+      </View>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>
@@ -359,6 +375,21 @@ const styles = StyleSheet.create({
 
   headerSection: {
     marginBottom: 8,
+  },
+
+  tabletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+
+  tabletFormColumn: {
+    flex: 0.85,
+    marginRight: 12,
+  },
+
+  tabletListColumn: {
+    flex: 1.15,
+    marginLeft: 12,
   },
 
   title: {

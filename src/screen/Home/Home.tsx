@@ -41,6 +41,7 @@ import ChocolateLoader from 'components/ChocolateLoader';
 import AnimatedPressable from 'components/AnimatedPressable';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CartItem, Category, SubVariety } from 'types/Domain';
+import { useWindowDimensions } from 'react-native';
 
 const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
   const { shopId, shopName, staffName } = route.params || {};
@@ -66,6 +67,9 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
   const [splitGpay, setSplitGpay] = useState('0');
   const [showRecordCelebration, setShowRecordCelebration] = useState(false);
   const [recordAmount, setRecordAmount] = useState(0);
+
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   React.useEffect(() => {
     if (showRecordCelebration) {
@@ -383,547 +387,519 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
     categories.find(category => category.id === selectedCategory?.id)
       ?.subVarieties || [];
 
-  return (
-    <View style={homeStyles.homeScreen}>
-      <ScreenContainer
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        contentContainerStyle={homeStyles.container}
-      >
-        {/* CART */}
-        {cart.length > 0 && (
-          <View style={homeStyles.cartWrapper}>
-            <CartSummary
-              cart={cart}
-              subtotal={cartSubtotal}
-              total={cartTotal}
-              showMoreOptions={showMoreOptions}
-              onToggleOptions={() => setShowMoreOptions(prev => !prev)}
-              discount={billDiscount}
-              note={note}
-              onDiscountChange={setBillDiscount}
-              onNoteChange={setNote}
-              onRemove={removeFromCart}
-            />
-          </View>
-        )}
-
-        {/* QUICK SELL */}
-        <View style={homeStyles.sectionHeader}>
-          <View>
-            <Text style={homeStyles.sectionTitle}>Quick Sell</Text>
-            <Text style={homeStyles.sectionSubtitle}>
-              Frequently sold items
-            </Text>
-          </View>
+  const renderProductSelection = () => (
+    <>
+      {/* QUICK SELL */}
+      <View style={homeStyles.sectionHeader}>
+        <View>
+          <Text style={homeStyles.sectionTitle}>Quick Sell</Text>
+          <Text style={homeStyles.sectionSubtitle}>Frequently sold items</Text>
         </View>
+      </View>
 
-        {quickItems.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={homeStyles.quickScroll}
-          >
-            {quickItems.map(sv => (
-              <AnimatedPressable
-                key={sv.id}
-                style={homeStyles.quickCard}
-                onPress={() =>
-                  selectItem(
-                    { id: sv.categoryId, name: sv.categoryName },
-                    sv,
-                    sv.presetAmounts[0],
-                  )
-                }
-              >
-                <View style={homeStyles.quickIcon}>
-                  <Text style={homeStyles.quickIconText}>+</Text>
-                </View>
-
-                <Text style={homeStyles.quickName} numberOfLines={1}>
-                  {sv.name}
-                </Text>
-
-                <Text style={homeStyles.quickPrice}>
-                  {formatCurrency(sv.pricePerKg)}
-                  /kg
-                </Text>
-              </AnimatedPressable>
-            ))}
-          </ScrollView>
-        )}
-
-        {/* CATEGORY */}
-        <View style={homeStyles.section}>
-          <Text style={homeStyles.sectionTitle}>Category</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={homeStyles.categoryGridScroll}
-          >
-            <View style={homeStyles.categoryGrid}>
-              {sortedCategories.map(cat => {
-                const active = selectedCategory?.id === cat.id;
-                return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[
-                      homeStyles.categoryChip,
-                      active && homeStyles.categoryChipActive,
-                    ]}
-                    onPress={() => {
-                      setSelectedCategory(cat);
-                      setSelectedSub(null);
-                      setGrams('');
-                      setCount('1');
-                      setError('');
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    <Text
-                      style={
-                        active
-                          ? homeStyles.categoryChipTextActive
-                          : homeStyles.categoryChipText
-                      }
-                    >
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* ITEMS */}
-        {selectedCategory && (
-          <View style={homeStyles.section}>
-            <View style={homeStyles.itemHeader}>
-              <View>
-                <Text style={homeStyles.sectionTitle}>Items</Text>
-
-                <Text style={homeStyles.sectionSubtitle}>
-                  Select an item to sell
-                </Text>
+      {quickItems.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={homeStyles.quickScroll}
+        >
+          {quickItems.map(sv => (
+            <AnimatedPressable
+              key={sv.id}
+              style={homeStyles.quickCard}
+              onPress={() =>
+                selectItem(
+                  { id: sv.categoryId, name: sv.categoryName },
+                  sv,
+                  sv.presetAmounts[0],
+                )
+              }
+            >
+              <View style={homeStyles.quickIcon}>
+                <Text style={homeStyles.quickIconText}>+</Text>
               </View>
-
-              <View style={homeStyles.itemCountBadge}>
-                <Text style={homeStyles.itemCountText}>{subItems.length}</Text>
-              </View>
-            </View>
-
-            {subItems.length > 0 ? (
-              <View style={homeStyles.itemGrid}>
-                {subItems.map((sv: SubVariety, index: number) => {
-                  const active = selectedSub?.id === sv.id;
-
-                  const stock = Number(sv.stock || 0);
-                  const isLowStock = stock <= sv.lowStockThreshold;
-
-                  const stockUnit = getStockUnitLabel(sv.unit);
-
-                  return (
-                    <TouchableOpacity
-                      key={sv.id || index}
-                      style={[
-                        homeStyles.itemCard,
-                        active && homeStyles.itemCardActive,
-                        !active && isLowStock && homeStyles.itemCardLowStock,
-                      ]}
-                      onPress={() => selectItem(selectedCategory, sv)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={homeStyles.itemTop}>
-                        <View style={homeStyles.itemInfo}>
-                          <Text
-                            style={[
-                              homeStyles.itemName,
-                              active && homeStyles.itemNameActive,
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {sv.name}
-                          </Text>
-
-                          <Text
-                            style={[
-                              homeStyles.itemPrice,
-                              active && homeStyles.itemPriceActive,
-                            ]}
-                          >
-                            {formatCurrency(sv.pricePerKg)}/ {stockUnit}
-                          </Text>
-                        </View>
-
-                        <View
-                          style={[
-                            homeStyles.checkCircle,
-                            active && homeStyles.checkCircleActive,
-                          ]}
-                        >
-                          {active && (
-                            <Text style={homeStyles.checkText}>✓</Text>
-                          )}
-                        </View>
-                      </View>
-
-                      <View style={homeStyles.stockRow}>
-                        <Text
-                          style={[
-                            homeStyles.stockLabel,
-                            active && homeStyles.stockLabelActive,
-                          ]}
-                        >
-                          Stock
-                        </Text>
-
-                        <Text
-                          style={[
-                            homeStyles.stockValue,
-                            active && homeStyles.stockValueActive,
-                            !active &&
-                              isLowStock &&
-                              homeStyles.stockValueLowStock,
-                          ]}
-                        >
-                          {stock.toFixed(2)} {stockUnit}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ) : (
-              <View style={homeStyles.emptyBox}>
-                <Text style={homeStyles.emptyTitle}>No items available</Text>
-
-                <Text style={homeStyles.emptyText}>
-                  This category has no items.
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* QUANTITY */}
-        {selectedSub && (
-          <View style={homeStyles.sellPanel}>
-            <View style={homeStyles.sellPanelHeader}>
-              <View>
-                <Text style={homeStyles.sellPanelTitle}>
-                  {selectedSub.name}
-                </Text>
-
-                <Text style={homeStyles.sellPanelSubtitle}>
-                  Enter quantity to sell
-                </Text>
-              </View>
-
-              <View style={homeStyles.sellStockBadge}>
-                <Text style={homeStyles.sellStockText}>
-                  {Number(selectedSub.stock || 0).toFixed(2)}{' '}
-                  {getStockUnitLabel(selectedSub.unit)} left
-                </Text>
-              </View>
-            </View>
-
-            {/* PRESETS */}
-            <Text style={homeStyles.fieldLabel}>Quantity</Text>
-
-            <View style={homeStyles.presetRow}>
-              {(selectedSub.presetAmounts || []).map((g: number) => {
-                const active = grams === String(g);
-
-                return (
-                  <TouchableOpacity
-                    key={g}
-                    style={[
-                      homeStyles.presetBtn,
-                      active && homeStyles.presetBtnActive,
-                    ]}
-                    onPress={() => setGrams(String(g))}
-                    activeOpacity={0.75}
-                  >
-                    <Text
-                      style={[
-                        homeStyles.presetText,
-                        active && homeStyles.presetTextActive,
-                      ]}
-                    >
-                      {g}
-                      {getQuantityUnitLabel(selectedSub.unit)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* MAIN QUANTITY CONTROL */}
-            <View style={homeStyles.quantityControl}>
-              <TouchableOpacity
-                style={homeStyles.quantityButton}
-                onPress={() => {
-                  const current = parseFloat(grams || '0');
-                  const preset = Number(selectedSub.presetAmounts?.[0]) || 0;
-                  const next = Math.max(0, current - preset);
-
-                  setGrams(next > 0 ? String(next) : '');
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={homeStyles.quantityButtonText}>−</Text>
-              </TouchableOpacity>
-
-              <TextInput
-                style={homeStyles.quantityInput}
-                value={grams}
-                onChangeText={setGrams}
-                keyboardType="decimal-pad"
-                placeholder="Quantity"
-                placeholderTextColor={COLORS.textFaint}
-                textAlign="center"
-              />
-
-              <TouchableOpacity
-                style={homeStyles.quantityButton}
-                onPress={() => {
-                  const current = parseFloat(grams || '0');
-                  const preset = Number(selectedSub.presetAmounts?.[0]) || 1;
-                  const next = current + preset;
-
-                  setGrams(String(next));
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={homeStyles.quantityButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-            {/* COUNT */}
-            {selectedSub.unit !== 'pcs' && (
-              <>
-                <View style={homeStyles.countHeader}>
-                  <Text style={homeStyles.fieldLabel}>How many?</Text>
-
-                  <Text style={homeStyles.countHint}>Same quantity each</Text>
-                </View>
-
-                <View style={homeStyles.countBox}>
-                  <TouchableOpacity
-                    style={homeStyles.countButton}
-                    onPress={() => {
-                      const current = parseInt(count || '1') || 1;
-
-                      setCount(String(Math.max(1, current - 1)));
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={homeStyles.countButtonText}>−</Text>
-                  </TouchableOpacity>
-
-                  <TextInput
-                    style={homeStyles.countInput}
-                    value={count}
-                    onChangeText={text => setCount(text.replace(/[^0-9]/g, ''))}
-                    keyboardType="number-pad"
-                    textAlign="center"
-                  />
-
-                  <TouchableOpacity
-                    style={homeStyles.countButton}
-                    onPress={() => {
-                      const current = parseInt(count || '1') || 1;
-
-                      setCount(String(current + 1));
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={homeStyles.countButtonText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
-            {/* AMOUNT */}
-            <View style={homeStyles.amountSummary}>
-              <View>
-                <Text style={homeStyles.amountLabel}>Amount</Text>
-                {countNum > 1 && (
-                  <Text style={homeStyles.amountCalculation}>
-                    {countNum} × {formatCurrency(perUnitAmount)}
-                  </Text>
-                )}
-                {amountOverride !== null &&
-                  parseFloat(amountOverride) !== billAmount && (
-                    <Text style={homeStyles.amountCalculation}>
-                      Calculated: {formatCurrency(billAmount)}
-                    </Text>
-                  )}
-              </View>
-              <TextInput
-                style={homeStyles.amountInput}
-                value={amountOverride ?? billAmount.toFixed(2)}
-                onChangeText={setAmountOverride}
-                keyboardType="decimal-pad"
-                textAlign="right"
-              />
-            </View>
-
-            {/* ERROR */}
-            {!!error && (
-              <View style={homeStyles.errorBox}>
-                <View style={homeStyles.errorCircle}>
-                  <Text style={homeStyles.errorIcon}>!</Text>
-                </View>
-
-                <Text style={homeStyles.errorText}>{error}</Text>
-              </View>
-            )}
-
-            {/* ADD */}
-            <AnimatedPressable style={homeStyles.addBtn} onPress={addToCart}>
-              <Text style={homeStyles.addBtnIcon}>+</Text>
-
-              <Text style={homeStyles.addBtnText}>Add to bill</Text>
+              <Text style={homeStyles.quickName} numberOfLines={1}>
+                {sv.name}
+              </Text>
+              <Text style={homeStyles.quickPrice}>
+                {formatCurrency(sv.pricePerKg)}/kg
+              </Text>
             </AnimatedPressable>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* CATEGORY */}
+      <View style={homeStyles.section}>
+        <Text style={homeStyles.sectionTitle}>Category</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={homeStyles.categoryGridScroll}
+        >
+          <View style={homeStyles.categoryGrid}>
+            {sortedCategories.map(cat => {
+              const active = selectedCategory?.id === cat.id;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    homeStyles.categoryChip,
+                    active && homeStyles.categoryChipActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedCategory(cat);
+                    setSelectedSub(null);
+                    setGrams('');
+                    setCount('1');
+                    setError('');
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={
+                      active
+                        ? homeStyles.categoryChipTextActive
+                        : homeStyles.categoryChipText
+                    }
+                  >
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
+        </ScrollView>
+      </View>
 
-        {/* PAYMENT */}
-        {cart.length > 0 && (
-          <View style={homeStyles.paymentSection}>
-            <View style={homeStyles.paymentHeader}>
-              <View>
-                <Text style={homeStyles.sectionTitle}>Payment</Text>
-
-                <Text style={homeStyles.sectionSubtitle}>
-                  Choose payment method
-                </Text>
-              </View>
-
-              <Text style={homeStyles.paymentTotal}>
-                {formatCurrency(cartTotal)}
+      {/* ITEMS */}
+      {selectedCategory && (
+        <View style={homeStyles.section}>
+          <View style={homeStyles.itemHeader}>
+            <View>
+              <Text style={homeStyles.sectionTitle}>Items</Text>
+              <Text style={homeStyles.sectionSubtitle}>
+                Select an item to sell
               </Text>
             </View>
-
-            <PillGroup
-              options={[
-                {
-                  key: 'cash',
-                  label: 'Cash',
-                },
-                {
-                  key: 'gpay',
-                  label: 'GPay',
-                },
-                {
-                  key: 'split',
-                  label: 'Split',
-                },
-              ]}
-              selectedKey={paymentMode}
-              equalWidth
-              onSelect={key => {
-                const mode = key as 'cash' | 'gpay' | 'split';
-
-                setPaymentMode(mode);
-
-                if (mode === 'split') {
-                  setSplitCash(cartTotal.toFixed(2));
-                  setSplitGpay('0');
-                }
-              }}
-            />
-
-            {/* SPLIT PAYMENT */}
-            {paymentMode === 'split' && (
-              <View style={homeStyles.splitBox}>
-                <View style={homeStyles.splitInputGroup}>
-                  <Text style={homeStyles.splitLabel}>Cash</Text>
-
-                  <TextInput
-                    style={homeStyles.splitInput}
-                    value={splitCash}
-                    onChangeText={setSplitCash}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-
-                <View style={homeStyles.splitInputGroup}>
-                  <Text style={homeStyles.splitLabel}>GPay</Text>
-
-                  <TextInput
-                    style={homeStyles.splitInput}
-                    value={splitGpay}
-                    onChangeText={setSplitGpay}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-
-                <Text
-                  style={
-                    splitMismatch
-                      ? homeStyles.splitErrorText
-                      : homeStyles.splitOkText
-                  }
-                >
-                  {formatCurrency(splitCashNum)} +{' '}
-                  {formatCurrency(splitGpayNum)} = {formatCurrency(splitTotal)}{' '}
-                  {splitMismatch
-                    ? `(should be ${formatCurrency(cartTotal)})`
-                    : '✓'}
-                </Text>
-              </View>
-            )}
-
-            {/* GENERAL ERROR */}
-            {!!error && !selectedSub && (
-              <View style={homeStyles.errorBox}>
-                <View style={homeStyles.errorCircle}>
-                  <Text style={homeStyles.errorIcon}>!</Text>
-                </View>
-
-                <Text style={homeStyles.errorText}>{error}</Text>
-              </View>
-            )}
-
-            {/* COMPLETE SALE */}
-            <AnimatedPressable
-              style={[
-                homeStyles.completeButton,
-                saving && homeStyles.completeButtonDisabled,
-              ]}
-              onPress={submitBill}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <>
-                  <View style={homeStyles.completeIcon}>
-                    <Text style={homeStyles.completeIconText}>✓</Text>
-                  </View>
-
-                  <View>
-                    <Text style={homeStyles.completeText}>Complete sale</Text>
-
-                    <Text style={homeStyles.completeSubtext}>
-                      {cart.length} item
-                      {cart.length !== 1 ? 's' : ''}
-                    </Text>
-                  </View>
-
-                  <Text style={homeStyles.completeAmount}>
-                    {formatCurrency(cartTotal)}
-                  </Text>
-                </>
-              )}
-            </AnimatedPressable>
+            <View style={homeStyles.itemCountBadge}>
+              <Text style={homeStyles.itemCountText}>{subItems.length}</Text>
+            </View>
           </View>
-        )}
 
-        <View style={homeStyles.bottomSpace} />
-      </ScreenContainer>
+          {subItems.length > 0 ? (
+            <View style={homeStyles.itemGrid}>
+                {subItems.map((sv: SubVariety, index: number) => {
+                const active = selectedSub?.id === sv.id;
+                const stock = Number(sv.stock || 0);
+                const isLowStock = stock <= sv.lowStockThreshold;
+                const stockUnit = getStockUnitLabel(sv.unit);
+                return (
+                  <TouchableOpacity
+                    key={sv.id || index}
+                    style={[
+                      homeStyles.itemCard,
+                      active && homeStyles.itemCardActive,
+                      !active && isLowStock && homeStyles.itemCardLowStock,
+                    ]}
+                    onPress={() => selectItem(selectedCategory, sv)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={homeStyles.itemTop}>
+                      <View style={homeStyles.itemInfo}>
+                        <Text
+                          style={[
+                            homeStyles.itemName,
+                            active && homeStyles.itemNameActive,
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {sv.name}
+                        </Text>
+                        <Text
+                          style={[
+                            homeStyles.itemPrice,
+                            active && homeStyles.itemPriceActive,
+                          ]}
+                        >
+                          {formatCurrency(sv.pricePerKg)}/ {stockUnit}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          homeStyles.checkCircle,
+                          active && homeStyles.checkCircleActive,
+                        ]}
+                      >
+                        {active && <Text style={homeStyles.checkText}>✓</Text>}
+                      </View>
+                    </View>
+                    <View style={homeStyles.stockRow}>
+                      <Text
+                        style={[
+                          homeStyles.stockLabel,
+                          active && homeStyles.stockLabelActive,
+                        ]}
+                      >
+                        Stock
+                      </Text>
+                      <Text
+                        style={[
+                          homeStyles.stockValue,
+                          active && homeStyles.stockValueActive,
+                          !active &&
+                            isLowStock &&
+                            homeStyles.stockValueLowStock,
+                        ]}
+                      >
+                        {stock.toFixed(2)} {stockUnit}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={homeStyles.emptyBox}>
+              <Text style={homeStyles.emptyTitle}>No items available</Text>
+              <Text style={homeStyles.emptyText}>
+                This category has no items.
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* QUANTITY / SELL PANEL */}
+      {selectedSub && (
+        <View style={homeStyles.sellPanel}>
+          <View style={homeStyles.sellPanelHeader}>
+            <View>
+              <Text style={homeStyles.sellPanelTitle}>{selectedSub.name}</Text>
+              <Text style={homeStyles.sellPanelSubtitle}>
+                Enter quantity to sell
+              </Text>
+            </View>
+            <View style={homeStyles.sellStockBadge}>
+              <Text style={homeStyles.sellStockText}>
+                {Number(selectedSub.stock || 0).toFixed(2)}{' '}
+                {getStockUnitLabel(selectedSub.unit)} left
+              </Text>
+            </View>
+          </View>
+
+          <Text style={homeStyles.fieldLabel}>Quantity</Text>
+          <View style={homeStyles.presetRow}>
+            {(selectedSub.presetAmounts || []).map((g: number) => {
+              const active = grams === String(g);
+              return (
+                <TouchableOpacity
+                  key={g}
+                  style={[
+                    homeStyles.presetBtn,
+                    active && homeStyles.presetBtnActive,
+                  ]}
+                  onPress={() => setGrams(String(g))}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      homeStyles.presetText,
+                      active && homeStyles.presetTextActive,
+                    ]}
+                  >
+                    {g}
+                    {getQuantityUnitLabel(selectedSub.unit)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={homeStyles.quantityControl}>
+            <TouchableOpacity
+              style={homeStyles.quantityButton}
+              onPress={() => {
+                const current = parseFloat(grams || '0');
+                const preset = Number(selectedSub.presetAmounts?.[0]) || 0;
+                const next = Math.max(0, current - preset);
+                setGrams(next > 0 ? String(next) : '');
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={homeStyles.quantityButtonText}>−</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={homeStyles.quantityInput}
+              value={grams}
+              onChangeText={setGrams}
+              keyboardType="decimal-pad"
+              placeholder="Quantity"
+              placeholderTextColor={COLORS.textFaint}
+              textAlign="center"
+            />
+            <TouchableOpacity
+              style={homeStyles.quantityButton}
+              onPress={() => {
+                const current = parseFloat(grams || '0');
+                const preset = Number(selectedSub.presetAmounts?.[0]) || 1;
+                setGrams(String(current + preset));
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={homeStyles.quantityButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          {selectedSub.unit !== 'pcs' && (
+            <>
+              <View style={homeStyles.countHeader}>
+                <Text style={homeStyles.fieldLabel}>How many?</Text>
+                <Text style={homeStyles.countHint}>Same quantity each</Text>
+              </View>
+              <View style={homeStyles.countBox}>
+                <TouchableOpacity
+                  style={homeStyles.countButton}
+                  onPress={() =>
+                    setCount(
+                      String(Math.max(1, (parseInt(count || '1') || 1) - 1)),
+                    )
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={homeStyles.countButtonText}>−</Text>
+                </TouchableOpacity>
+                <TextInput
+                  style={homeStyles.countInput}
+                  value={count}
+                  onChangeText={t => setCount(t.replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
+                  textAlign="center"
+                />
+                <TouchableOpacity
+                  style={homeStyles.countButton}
+                  onPress={() =>
+                    setCount(String((parseInt(count || '1') || 1) + 1))
+                  }
+                  activeOpacity={0.7}
+                >
+                  <Text style={homeStyles.countButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          <View style={homeStyles.amountSummary}>
+            <View>
+              <Text style={homeStyles.amountLabel}>Amount</Text>
+              {countNum > 1 && (
+                <Text style={homeStyles.amountCalculation}>
+                  {countNum} × {formatCurrency(perUnitAmount)}
+                </Text>
+              )}
+              {amountOverride !== null &&
+                parseFloat(amountOverride) !== billAmount && (
+                  <Text style={homeStyles.amountCalculation}>
+                    Calculated: {formatCurrency(billAmount)}
+                  </Text>
+                )}
+            </View>
+            <TextInput
+              style={homeStyles.amountInput}
+              value={amountOverride ?? billAmount.toFixed(2)}
+              onChangeText={setAmountOverride}
+              keyboardType="decimal-pad"
+              textAlign="right"
+            />
+          </View>
+
+          {!!error && (
+            <View style={homeStyles.errorBox}>
+              <View style={homeStyles.errorCircle}>
+                <Text style={homeStyles.errorIcon}>!</Text>
+              </View>
+              <Text style={homeStyles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          <AnimatedPressable style={homeStyles.addBtn} onPress={addToCart}>
+            <Text style={homeStyles.addBtnIcon}>+</Text>
+            <Text style={homeStyles.addBtnText}>Add to bill</Text>
+          </AnimatedPressable>
+        </View>
+      )}
+    </>
+  );
+
+  const renderCartAndPayment = () => (
+    <>
+      {cart.length > 0 && (
+        <View style={homeStyles.cartWrapper}>
+          <CartSummary
+            cart={cart}
+            subtotal={cartSubtotal}
+            total={cartTotal}
+            showMoreOptions={showMoreOptions}
+            onToggleOptions={() => setShowMoreOptions(prev => !prev)}
+            discount={billDiscount}
+            note={note}
+            onDiscountChange={setBillDiscount}
+            onNoteChange={setNote}
+            onRemove={removeFromCart}
+          />
+        </View>
+      )}
+
+      {cart.length > 0 && (
+        <View style={homeStyles.paymentSection}>
+          <View style={homeStyles.paymentHeader}>
+            <View>
+              <Text style={homeStyles.sectionTitle}>Payment</Text>
+              <Text style={homeStyles.sectionSubtitle}>
+                Choose payment method
+              </Text>
+            </View>
+            <Text style={homeStyles.paymentTotal}>
+              {formatCurrency(cartTotal)}
+            </Text>
+          </View>
+
+          <PillGroup
+            options={[
+              { key: 'cash', label: 'Cash' },
+              { key: 'gpay', label: 'GPay' },
+              { key: 'split', label: 'Split' },
+            ]}
+            selectedKey={paymentMode}
+            equalWidth
+            onSelect={key => {
+              const mode = key as 'cash' | 'gpay' | 'split';
+              setPaymentMode(mode);
+              if (mode === 'split') {
+                setSplitCash(cartTotal.toFixed(2));
+                setSplitGpay('0');
+              }
+            }}
+          />
+
+          {paymentMode === 'split' && (
+            <View style={homeStyles.splitBox}>
+              <View style={homeStyles.splitInputGroup}>
+                <Text style={homeStyles.splitLabel}>Cash</Text>
+                <TextInput
+                  style={homeStyles.splitInput}
+                  value={splitCash}
+                  onChangeText={setSplitCash}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={homeStyles.splitInputGroup}>
+                <Text style={homeStyles.splitLabel}>GPay</Text>
+                <TextInput
+                  style={homeStyles.splitInput}
+                  value={splitGpay}
+                  onChangeText={setSplitGpay}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <Text
+                style={
+                  splitMismatch
+                    ? homeStyles.splitErrorText
+                    : homeStyles.splitOkText
+                }
+              >
+                {formatCurrency(splitCashNum)} + {formatCurrency(splitGpayNum)}{' '}
+                = {formatCurrency(splitTotal)}{' '}
+                {splitMismatch
+                  ? `(should be ${formatCurrency(cartTotal)})`
+                  : '✓'}
+              </Text>
+            </View>
+          )}
+
+          {!!error && !selectedSub && (
+            <View style={homeStyles.errorBox}>
+              <View style={homeStyles.errorCircle}>
+                <Text style={homeStyles.errorIcon}>!</Text>
+              </View>
+              <Text style={homeStyles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          <AnimatedPressable
+            style={[
+              homeStyles.completeButton,
+              saving && homeStyles.completeButtonDisabled,
+            ]}
+            onPress={submitBill}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <>
+                <View style={homeStyles.completeIcon}>
+                  <Text style={homeStyles.completeIconText}>✓</Text>
+                </View>
+                <View>
+                  <Text style={homeStyles.completeText}>Complete sale</Text>
+                  <Text style={homeStyles.completeSubtext}>
+                    {cart.length} item{cart.length !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+                <Text style={homeStyles.completeAmount}>
+                  {formatCurrency(cartTotal)}
+                </Text>
+              </>
+            )}
+          </AnimatedPressable>
+        </View>
+      )}
+
+      {cart.length === 0 && isTablet && (
+        <View style={homeStyles.emptyCartHint}>
+          <Text style={homeStyles.emptyCartHintText}>
+            Add items to see your bill here
+          </Text>
+        </View>
+      )}
+    </>
+  );
+
+  return (
+    <View style={homeStyles.homeScreen}>
+      {isTablet ? (
+        <View style={homeStyles.tabletRow}>
+          <ScrollView
+            style={homeStyles.tabletLeftCol}
+            contentContainerStyle={homeStyles.container}
+            keyboardShouldPersistTaps="handled"
+          >
+            {renderProductSelection()}
+            <View style={homeStyles.bottomSpace} />
+          </ScrollView>
+          <ScrollView
+            style={homeStyles.tabletRightCol}
+            contentContainerStyle={homeStyles.tabletRightColContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {renderCartAndPayment()}
+            <View style={homeStyles.bottomSpace} />
+          </ScrollView>
+        </View>
+      ) : (
+        <ScreenContainer
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          contentContainerStyle={homeStyles.container}
+        >
+          {renderCartAndPayment()}
+          {renderProductSelection()}
+          <View style={homeStyles.bottomSpace} />
+        </ScreenContainer>
+      )}
+
       {showRecordCelebration && (
         <View style={homeStyles.celebrationOverlay} pointerEvents="box-none">
           <ConfettiCannon

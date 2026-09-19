@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   ScrollView,
   RefreshControl,
+  useWindowDimensions,
 } from 'react-native';
 import {
   getFirestore,
@@ -51,6 +52,8 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 
 const Catalogue = ({ route }: { route: { params: { shopId: string } } }) => {
   const { shopId } = route.params || {};
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -160,7 +163,11 @@ const Catalogue = ({ route }: { route: { params: { shopId: string } } }) => {
 
   return (
     <>
-      <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
+      <ScreenContainer
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        allowWideContent={isTablet}
+      >
         <View style={styles.headerRow}>
           <Text style={styles.title}>Catalogue</Text>
           <TouchableOpacity
@@ -171,51 +178,59 @@ const Catalogue = ({ route }: { route: { params: { shopId: string } } }) => {
           </TouchableOpacity>
         </View>
 
-        {categories.map(cat => {
-          const isOpen = !!expanded[cat.id];
-          return (
-            <View key={cat.id} style={styles.categoryBox}>
-              <TouchableOpacity
-                style={styles.categoryHeader}
-                onPress={() => toggleCategory(cat.id)}
+        <View style={isTablet ? styles.tabletGrid : undefined}>
+          {categories.map(cat => {
+            const isOpen = !!expanded[cat.id];
+            return (
+              <View
+                key={cat.id}
+                style={[
+                  styles.categoryBox,
+                  isTablet && styles.tabletCategoryBox,
+                ]}
               >
-                <Text style={styles.categoryName}>{cat.name}</Text>
-                <Text style={styles.chevron}>{isOpen ? '▾' : '▸'}</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.categoryHeader}
+                  onPress={() => toggleCategory(cat.id)}
+                >
+                  <Text style={styles.categoryName}>{cat.name}</Text>
+                  <Text style={styles.chevron}>{isOpen ? '▾' : '▸'}</Text>
+                </TouchableOpacity>
 
-              {isOpen && (
-                <>
-                  {cat.subVarieties.map((sv: SubVariety) => (
+                {isOpen && (
+                  <>
+                    {cat.subVarieties.map((sv: SubVariety) => (
+                      <TouchableOpacity
+                        key={sv.id}
+                        style={styles.itemRow}
+                        onPress={() =>
+                          setEditingItem({ categoryId: cat.id, subVariety: sv })
+                        }
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.itemName}>{sv.name}</Text>
+                          <Text style={styles.itemMeta}>
+                            ₹{sv.pricePerKg}/kg · stock: {sv.stock} · low at:{' '}
+                            {sv.lowStockThreshold}
+                          </Text>
+                        </View>
+                        <Text style={styles.editIcon}>✎</Text>
+                      </TouchableOpacity>
+                    ))}
                     <TouchableOpacity
-                      key={sv.id}
-                      style={styles.itemRow}
-                      onPress={() =>
-                        setEditingItem({ categoryId: cat.id, subVariety: sv })
-                      }
+                      style={styles.addItemBtn}
+                      onPress={() => setAddingItemTo(cat.id)}
                     >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.itemName}>{sv.name}</Text>
-                        <Text style={styles.itemMeta}>
-                          ₹{sv.pricePerKg}/kg · stock: {sv.stock} · low at:{' '}
-                          {sv.lowStockThreshold}
-                        </Text>
-                      </View>
-                      <Text style={styles.editIcon}>✎</Text>
+                      <Text style={styles.addItemBtnText}>
+                        + Add item to {cat.name}
+                      </Text>
                     </TouchableOpacity>
-                  ))}
-                  <TouchableOpacity
-                    style={styles.addItemBtn}
-                    onPress={() => setAddingItemTo(cat.id)}
-                  >
-                    <Text style={styles.addItemBtnText}>
-                      + Add item to {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-          );
-        })}
+                  </>
+                )}
+              </View>
+            );
+          })}
+        </View>
 
         <View style={{ height: 40 }} />
       </ScreenContainer>
@@ -489,6 +504,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  tabletGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  tabletCategoryBox: {
+    width: '48.5%',
   },
   title: { fontSize: 22, fontWeight: '700', color: '#2B160C' },
   addCategoryBtn: {

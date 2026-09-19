@@ -7,6 +7,7 @@ import {
   TextInput,
   Platform,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import {
   getFirestore,
@@ -30,6 +31,8 @@ const Attendance = ({
   route: { params?: { shopId?: string; staffName?: string } };
 }) => {
   const { shopId, staffName } = route.params || {};
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
@@ -174,168 +177,177 @@ const Attendance = ({
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Leave</Text>
 
-      <Text style={styles.label}>Staff Member</Text>
+      <View style={isTablet ? styles.tabletRow : undefined}>
+        <View style={isTablet ? styles.tabletFormColumn : undefined}>
+          <Text style={styles.label}>Staff Member</Text>
 
-      <View style={styles.wrapRow}>
-        {staffList.map(p => (
+          <View style={styles.wrapRow}>
+            {staffList.map(p => (
+              <AnimatedPressable
+                key={p.name}
+                style={[
+                  styles.pill,
+                  selectedStaff === p.name && styles.pillActive,
+                ]}
+                onPress={() => setSelectedStaff(p.name)}
+              >
+                <Text
+                  style={
+                    selectedStaff === p.name
+                      ? styles.pillTextActive
+                      : styles.pillText
+                  }
+                >
+                  {p.name}
+                </Text>
+              </AnimatedPressable>
+            ))}
+          </View>
+
+          <Text style={styles.label}>From</Text>
+
           <AnimatedPressable
-            key={p.name}
-            style={[styles.pill, selectedStaff === p.name && styles.pillActive]}
-            onPress={() => setSelectedStaff(p.name)}
+            style={styles.dateBtn}
+            onPress={() => setShowFromPicker(true)}
           >
-            <Text
-              style={
-                selectedStaff === p.name
-                  ? styles.pillTextActive
-                  : styles.pillText
-              }
-            >
-              {p.name}
+            <Text style={styles.dateBtnText}>
+              {fromDate.toLocaleDateString('en-IN')}
             </Text>
           </AnimatedPressable>
-        ))}
-      </View>
 
-      <Text style={styles.label}>From</Text>
+          {showFromPicker && (
+            <DateTimePicker
+              value={fromDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(e, date) => {
+                setShowFromPicker(false);
 
-      <AnimatedPressable
-        style={styles.dateBtn}
-        onPress={() => setShowFromPicker(true)}
-      >
-        <Text style={styles.dateBtnText}>
-          {fromDate.toLocaleDateString('en-IN')}
-        </Text>
-      </AnimatedPressable>
+                if (date) {
+                  setFromDate(date);
+                }
+              }}
+            />
+          )}
 
-      {showFromPicker && (
-        <DateTimePicker
-          value={fromDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(e, date) => {
-            setShowFromPicker(false);
+          <Text style={styles.label}>To</Text>
 
-            if (date) {
-              setFromDate(date);
-            }
-          }}
-        />
-      )}
-
-      <Text style={styles.label}>To</Text>
-
-      <AnimatedPressable
-        style={styles.dateBtn}
-        onPress={() => setShowToPicker(true)}
-      >
-        <Text style={styles.dateBtnText}>
-          {toDate.toLocaleDateString('en-IN')}
-        </Text>
-      </AnimatedPressable>
-
-      {showToPicker && (
-        <DateTimePicker
-          value={toDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(e, date) => {
-            setShowToPicker(false);
-
-            if (date) {
-              setToDate(date);
-            }
-          }}
-        />
-      )}
-
-      <Text style={styles.label}>Reason (optional)</Text>
-
-      <TextInput
-        style={styles.input}
-        value={note}
-        onChangeText={setNote}
-        placeholder="e.g. sick leave, personal"
-      />
-
-      {!!error && <Text style={styles.error}>{error}</Text>}
-
-      <AnimatedPressable
-        style={styles.button}
-        onPress={submitLeave}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Log Leave</Text>
-        )}
-      </AnimatedPressable>
-
-      <View style={styles.monthNav}>
-        <AnimatedPressable
-          onPress={() => changeMonth(-1)}
-          style={styles.monthArrowPressable}
-        >
-          <Text style={styles.monthNavArrow}>‹</Text>
-        </AnimatedPressable>
-
-        <Text style={styles.monthNavLabel}>{monthLabel}</Text>
-
-        <AnimatedPressable
-          onPress={() => changeMonth(1)}
-          style={styles.monthArrowPressable}
-        >
-          <Text style={styles.monthNavArrow}>›</Text>
-        </AnimatedPressable>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Summary for {monthLabel}</Text>
-
-        {Object.keys(totalsByStaff).length === 0 && (
-          <Text style={styles.empty}>No leave recorded this month.</Text>
-        )}
-
-        {Object.entries(totalsByStaff).map(([name, days]) => (
-          <View key={name} style={styles.summaryRow}>
-            <Text style={styles.summaryName}>{name}</Text>
-
-            <Text style={styles.summaryDays}>
-              {days} day{days !== 1 ? 's' : ''}
+          <AnimatedPressable
+            style={styles.dateBtn}
+            onPress={() => setShowToPicker(true)}
+          >
+            <Text style={styles.dateBtnText}>
+              {toDate.toLocaleDateString('en-IN')}
             </Text>
-          </View>
-        ))}
-      </View>
+          </AnimatedPressable>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Entries</Text>
+          {showToPicker && (
+            <DateTimePicker
+              value={toDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(e, date) => {
+                setShowToPicker(false);
 
-        {leaves.length === 0 && (
-          <Text style={styles.empty}>No entries this month.</Text>
-        )}
+                if (date) {
+                  setToDate(date);
+                }
+              }}
+            />
+          )}
 
-        {leaves.map(l => (
-          <View key={l.id} style={styles.entryRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.entryName}>
-                {l.staffName} — {l.daysCount} day
-                {l.daysCount !== 1 ? 's' : ''}
-              </Text>
+          <Text style={styles.label}>Reason (optional)</Text>
 
-              <Text style={styles.entryDates}>
-                {l.fromDate} to {l.toDate}
-                {l.note ? ` · ${l.note}` : ''}
-              </Text>
-            </View>
+          <TextInput
+            style={styles.input}
+            value={note}
+            onChangeText={setNote}
+            placeholder="e.g. sick leave, personal"
+          />
+
+          {!!error && <Text style={styles.error}>{error}</Text>}
+
+          <AnimatedPressable
+            style={styles.button}
+            onPress={submitLeave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Log Leave</Text>
+            )}
+          </AnimatedPressable>
+        </View>
+
+        <View style={isTablet ? styles.tabletListColumn : undefined}>
+          <View style={styles.monthNav}>
+            <AnimatedPressable
+              onPress={() => changeMonth(-1)}
+              style={styles.monthArrowPressable}
+            >
+              <Text style={styles.monthNavArrow}>‹</Text>
+            </AnimatedPressable>
+
+            <Text style={styles.monthNavLabel}>{monthLabel}</Text>
 
             <AnimatedPressable
-              onPress={() => removeLeave(l.id)}
-              style={styles.removePressable}
+              onPress={() => changeMonth(1)}
+              style={styles.monthArrowPressable}
             >
-              <Text style={styles.removeText}>✕</Text>
+              <Text style={styles.monthNavArrow}>›</Text>
             </AnimatedPressable>
           </View>
-        ))}
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Summary for {monthLabel}</Text>
+
+            {Object.keys(totalsByStaff).length === 0 && (
+              <Text style={styles.empty}>No leave recorded this month.</Text>
+            )}
+
+            {Object.entries(totalsByStaff).map(([name, days]) => (
+              <View key={name} style={styles.summaryRow}>
+                <Text style={styles.summaryName}>{name}</Text>
+
+                <Text style={styles.summaryDays}>
+                  {days} day{days !== 1 ? 's' : ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Entries</Text>
+
+            {leaves.length === 0 && (
+              <Text style={styles.empty}>No entries this month.</Text>
+            )}
+
+            {leaves.map(l => (
+              <View key={l.id} style={styles.entryRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.entryName}>
+                    {l.staffName} — {l.daysCount} day
+                    {l.daysCount !== 1 ? 's' : ''}
+                  </Text>
+
+                  <Text style={styles.entryDates}>
+                    {l.fromDate} to {l.toDate}
+                    {l.note ? ` · ${l.note}` : ''}
+                  </Text>
+                </View>
+
+                <AnimatedPressable
+                  onPress={() => removeLeave(l.id)}
+                  style={styles.removePressable}
+                >
+                  <Text style={styles.removeText}>✕</Text>
+                </AnimatedPressable>
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
 
       <View style={{ height: 40 }} />
@@ -344,6 +356,21 @@ const Attendance = ({
 };
 
 const styles = StyleSheet.create({
+  tabletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+
+  tabletFormColumn: {
+    flex: 0.85,
+    marginRight: 12,
+  },
+
+  tabletListColumn: {
+    flex: 1.15,
+    marginLeft: 12,
+  },
+
   container: {
     flex: 1,
     backgroundColor: '#FBF4EC',

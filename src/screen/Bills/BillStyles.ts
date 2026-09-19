@@ -24,6 +24,16 @@ export const BillStyles = StyleSheet.create({
     paddingHorizontal: 2,
   },
 
+  tabletGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+
+  tabletCard: {
+    width: '48.5%',
+  },
+
   dateNav: {
     flexDirection: 'row',
     alignItems: 'center',

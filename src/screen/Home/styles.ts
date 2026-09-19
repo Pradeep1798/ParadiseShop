@@ -888,4 +888,31 @@ export const homeStyles = StyleSheet.create({
     fontSize: 13,
     marginHorizontal: 8,
   },
+
+  tabletRow: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: COLORS.creamSoft,
+  },
+  tabletLeftCol: {
+    flex: 1.4,
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
+  },
+  tabletRightCol: {
+    flex: 1,
+    backgroundColor: COLORS.cream,
+  },
+  tabletRightColContent: {
+    padding: 16,
+  },
+  emptyCartHint: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  emptyCartHintText: {
+    color: COLORS.textFaint,
+    fontSize: 13,
+    textAlign: 'center',
+  },
 });

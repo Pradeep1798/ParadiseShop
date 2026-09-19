@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { formatCurrency } from 'utils/HelperFn';
 import ScreenContainer from 'components/ScreenContainer';
@@ -24,6 +25,8 @@ const Expense = ({
   route: { params: { shopId: string; staffName: string } };
 }) => {
   const { shopId, staffName } = route.params;
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [payment, setPayment] = useState<'cash' | 'gpay'>('cash');
@@ -76,89 +79,109 @@ const Expense = ({
   const todaysTotal = todaysExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   return (
-    <ScreenContainer refreshing={refreshing} onRefresh={onRefresh}>
-      <AppInput
-        label="Amount (₹)"
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="decimal-pad"
-        placeholder="e.g. 150"
-      />
-      <AppInput
-        label="What was this for?"
-        value={description}
-        onChangeText={setDescription}
-        placeholder="e.g. foil, tea, auto fare"
-      />
+    <ScreenContainer
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      allowWideContent={isTablet}
+    >
+      <View style={isTablet ? styles.tabletRow : undefined}>
+        <View style={isTablet ? styles.tabletFormColumn : undefined}>
+          <AppInput
+            label="Amount (₹)"
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 150"
+          />
+          <AppInput
+            label="What was this for?"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="e.g. foil, tea, auto fare"
+          />
 
-      <Text style={styles.label}>Paid via</Text>
-      <View style={styles.presetRow}>
-        <TouchableOpacity
-          style={[
-            styles.paymentBtn,
-            payment === 'cash' && styles.paymentBtnActive,
-          ]}
-          onPress={() => setPayment('cash')}
-        >
-          <Text
-            style={payment === 'cash' ? styles.pillTextActive : styles.pillText}
-          >
-            Cash
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.paymentBtn,
-            payment === 'gpay' && styles.paymentBtnActive,
-          ]}
-          onPress={() => setPayment('gpay')}
-        >
-          <Text
-            style={payment === 'gpay' ? styles.pillTextActive : styles.pillText}
-          >
-            GPay
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {!!error && <Text style={styles.error}>{error}</Text>}
-
-      <AppButton
-        label="Save expense"
-        onPress={submit}
-        loading={saving}
-        variant="danger"
-        style={{ marginTop: 24 }}
-      />
-
-      <Card style={{ marginTop: 28 }}>
-        <Text style={styles.listTitle}>
-          Today's expenses ({todaysExpenses.length})
-        </Text>
-        {loading && (
-          <ActivityIndicator style={{ marginTop: 10 }} color="#7A4A2B" />
-        )}
-        {!loading && todaysExpenses.length === 0 && (
-          <EmptyState text="No expenses logged today yet." />
-        )}
-        {todaysExpenses.map(e => (
-          <View key={e.id} style={styles.listRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listDesc}>{e.description}</Text>
-              <Text style={styles.listMeta}>
-                {e.staffName} · {e.paymentMethod === 'gpay' ? 'GPay' : 'Cash'}
+          <Text style={styles.label}>Paid via</Text>
+          <View style={styles.presetRow}>
+            <TouchableOpacity
+              style={[
+                styles.paymentBtn,
+                payment === 'cash' && styles.paymentBtnActive,
+              ]}
+              onPress={() => setPayment('cash')}
+            >
+              <Text
+                style={
+                  payment === 'cash' ? styles.pillTextActive : styles.pillText
+                }
+              >
+                Cash
               </Text>
-            </View>
-            <Text style={styles.listAmount}>{formatCurrency(e.amount)}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.paymentBtn,
+                payment === 'gpay' && styles.paymentBtnActive,
+              ]}
+              onPress={() => setPayment('gpay')}
+            >
+              <Text
+                style={
+                  payment === 'gpay' ? styles.pillTextActive : styles.pillText
+                }
+              >
+                GPay
+              </Text>
+            </TouchableOpacity>
           </View>
-        ))}
-        {todaysExpenses.length > 0 && (
-          <View style={styles.listTotalRow}>
-            <Text style={styles.listTotalLabel}>Total</Text>
-            <AnimatedAmount value={todaysTotal} style={styles.listTotalValue} />
-          </View>
-        )}
-      </Card>
+
+          {!!error && <Text style={styles.error}>{error}</Text>}
+
+          <AppButton
+            label="Save expense"
+            onPress={submit}
+            loading={saving}
+            variant="danger"
+            style={{ marginTop: 24 }}
+          />
+        </View>
+
+        <View style={isTablet ? styles.tabletListColumn : undefined}>
+          <Card style={{ marginTop: 28 }}>
+            <Text style={styles.listTitle}>
+              Today's expenses ({todaysExpenses.length})
+            </Text>
+            {loading && (
+              <ActivityIndicator style={{ marginTop: 10 }} color="#7A4A2B" />
+            )}
+            {!loading && todaysExpenses.length === 0 && (
+              <EmptyState text="No expenses logged today yet." />
+            )}
+            {todaysExpenses.map(e => (
+              <View key={e.id} style={styles.listRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.listDesc}>{e.description}</Text>
+                  <Text style={styles.listMeta}>
+                    {e.staffName} ·{' '}
+                    {e.paymentMethod === 'gpay' ? 'GPay' : 'Cash'}
+                  </Text>
+                </View>
+                <Text style={styles.listAmount}>
+                  {formatCurrency(e.amount)}
+                </Text>
+              </View>
+            ))}
+            {todaysExpenses.length > 0 && (
+              <View style={styles.listTotalRow}>
+                <Text style={styles.listTotalLabel}>Total</Text>
+                <AnimatedAmount
+                  value={todaysTotal}
+                  style={styles.listTotalValue}
+                />
+              </View>
+            )}
+          </Card>
+        </View>
+      </View>
 
       <View style={{ height: 40 }} />
     </ScreenContainer>
@@ -166,6 +189,18 @@ const Expense = ({
 };
 
 const styles = StyleSheet.create({
+  tabletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  tabletFormColumn: {
+    flex: 0.85,
+    marginRight: 12,
+  },
+  tabletListColumn: {
+    flex: 1.15,
+    marginLeft: 12,
+  },
   label: {
     fontSize: 12,
     fontWeight: '600',
