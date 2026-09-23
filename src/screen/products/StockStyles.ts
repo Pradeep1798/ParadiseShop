@@ -626,4 +626,13 @@ export const StockStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
+  emptyCartHint: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  emptyCartHintText: {
+    color: COLORS.textFaint,
+    fontSize: 13,
+    textAlign: 'center',
+  },
 });

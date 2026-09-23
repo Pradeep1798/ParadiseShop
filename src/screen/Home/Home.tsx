@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -70,6 +70,32 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
 
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
+
+  const itemCardStyle = isTablet
+    ? homeStyles.itemCardTablet
+    : homeStyles.itemCard;
+  const quickCardStyle = isTablet
+    ? homeStyles.quickCardTablet
+    : homeStyles.quickCard;
+
+  const quantityButtonStyle = isTablet
+    ? [homeStyles.quantityButton, { width: 62 }]
+    : homeStyles.quantityButton;
+  const countButtonStyle = isTablet
+    ? [homeStyles.countButton, { width: 54, height: 50 }]
+    : homeStyles.countButton;
+
+  const quantityInputRef = useRef<TextInput>(null);
+
+  React.useEffect(() => {
+    if (!selectedSub) return;
+
+    const frame = requestAnimationFrame(() => {
+      quantityInputRef.current?.focus();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [selectedSub]);
 
   React.useEffect(() => {
     if (showRecordCelebration) {
@@ -317,6 +343,10 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
 
         const itemsForThisCategory = byCategory[categoryId];
 
+        if (!category) {
+          throw new Error(`Category ${categoryId} no longer exists`);
+        }
+
         const updatedSubVarieties = category.subVarieties.map(
           (sv: SubVariety) => {
             const deductions = itemsForThisCategory
@@ -406,7 +436,7 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
           {quickItems.map(sv => (
             <AnimatedPressable
               key={sv.id}
-              style={homeStyles.quickCard}
+              style={quickCardStyle}
               onPress={() =>
                 selectItem(
                   { id: sv.categoryId, name: sv.categoryName },
@@ -489,7 +519,7 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
 
           {subItems.length > 0 ? (
             <View style={homeStyles.itemGrid}>
-                {subItems.map((sv: SubVariety, index: number) => {
+              {subItems.map((sv: SubVariety, index: number) => {
                 const active = selectedSub?.id === sv.id;
                 const stock = Number(sv.stock || 0);
                 const isLowStock = stock <= sv.lowStockThreshold;
@@ -498,7 +528,7 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
                   <TouchableOpacity
                     key={sv.id || index}
                     style={[
-                      homeStyles.itemCard,
+                      itemCardStyle,
                       active && homeStyles.itemCardActive,
                       !active && isLowStock && homeStyles.itemCardLowStock,
                     ]}
@@ -618,7 +648,7 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
 
           <View style={homeStyles.quantityControl}>
             <TouchableOpacity
-              style={homeStyles.quantityButton}
+              style={quantityButtonStyle}
               onPress={() => {
                 const current = parseFloat(grams || '0');
                 const preset = Number(selectedSub.presetAmounts?.[0]) || 0;
@@ -630,6 +660,9 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
               <Text style={homeStyles.quantityButtonText}>−</Text>
             </TouchableOpacity>
             <TextInput
+              ref={quantityInputRef}
+              autoFocus
+              showSoftInputOnFocus={false}
               style={homeStyles.quantityInput}
               value={grams}
               onChangeText={setGrams}
@@ -639,7 +672,7 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
               textAlign="center"
             />
             <TouchableOpacity
-              style={homeStyles.quantityButton}
+              style={quantityButtonStyle}
               onPress={() => {
                 const current = parseFloat(grams || '0');
                 const preset = Number(selectedSub.presetAmounts?.[0]) || 1;
@@ -659,7 +692,7 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
               </View>
               <View style={homeStyles.countBox}>
                 <TouchableOpacity
-                  style={homeStyles.countButton}
+                  style={countButtonStyle}
                   onPress={() =>
                     setCount(
                       String(Math.max(1, (parseInt(count || '1') || 1) - 1)),
@@ -677,7 +710,7 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
                   textAlign="center"
                 />
                 <TouchableOpacity
-                  style={homeStyles.countButton}
+                  style={countButtonStyle}
                   onPress={() =>
                     setCount(String((parseInt(count || '1') || 1) + 1))
                   }
@@ -830,6 +863,7 @@ const Home = ({ route }: { route: { params?: Record<string, string> } }) => {
           <AnimatedPressable
             style={[
               homeStyles.completeButton,
+              isTablet && homeStyles.completeButtonTablet,
               saving && homeStyles.completeButtonDisabled,
             ]}
             onPress={submitBill}

@@ -190,3 +190,8 @@ export async function updateSalesRecord(
     date,
   });
 }
+
+export async function getShopLocationUrl(shopId: string) {
+  const shop = await getShop(shopId);
+  return shop?.locationUrl || null;
+}

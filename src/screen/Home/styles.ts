@@ -888,6 +888,35 @@ export const homeStyles = StyleSheet.create({
     fontSize: 13,
     marginHorizontal: 8,
   },
+  itemCardTablet: {
+    width: '31.8%',
+    minHeight: 132, // ~14% taller than phone's 116
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    justifyContent: 'space-between',
+    shadowColor: '#4E2E1A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 7,
+    elevation: 2,
+  },
+  quickCardTablet: {
+    width: 150,
+    minHeight: 106, // ~13% taller than phone's 94
+    backgroundColor: COLORS.cacao,
+    borderRadius: 16,
+    padding: 14,
+    marginRight: 12,
+    shadowColor: '#3B1E0E',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 4,
+  },
 
   tabletRow: {
     flex: 1,
@@ -915,4 +944,8 @@ export const homeStyles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
+  completeButtonTablet: {
+  minHeight: 74, // taller than phone's 62
+  borderRadius: 18,
+},
 });

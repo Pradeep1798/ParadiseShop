@@ -118,6 +118,7 @@ export interface VoidRecord {
 export interface Shop {
   name?: string;
   staff?: StaffMember[];
+  locationUrl?: string;
 }
 
 export interface BillItem extends Transaction {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { COLORS, RADIUS, SPACING } from 'theme/Theme';
 
 const Card = ({
@@ -7,7 +7,7 @@ const Card = ({
   style,
 }: {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }) => <View style={[styles.card, style]}>{children}</View>;
 
 const styles = StyleSheet.create({

@@ -28,6 +28,7 @@ import {
   updateTransaction,
   addVoidRecord,
   getManagementStaff,
+  getShopLocationUrl,
 } from 'services/Service';
 
 import { excludeVoided } from 'utils/SalesCalculation';
@@ -121,6 +122,7 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
           paymentMethod: t.paymentMethod || 'cash',
           timestamp: t.timestamp,
           items: [],
+          total: 0,
         };
       }
       const returnedForThisItem = returns
@@ -157,22 +159,30 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
     setReturningItem(item);
     setReturnQty(String(item.quantity - item.returnedQty));
     setRefundPayment(
-      item.paymentMethod === 'split' ? 'cash' : item.paymentMethod,
+      item.paymentMethod === 'split' || item.paymentMethod === 'cash'
+        ? 'cash'
+        : item.paymentMethod === 'gpay'
+        ? 'gpay'
+        : 'cash',
     );
     setReturnError('');
   };
 
   const confirmReturn = async () => {
+    if (!returningItem) {
+      setReturnError('No item selected');
+      return;
+    }
+
+    const item = returningItem;
     const qty = parseFloat(returnQty);
-    const maxReturnable = returningItem.quantity - returningItem.returnedQty;
+    const maxReturnable = item.quantity - item.returnedQty;
     if (!qty || qty <= 0) {
       setReturnError('Enter a valid quantity');
       return;
     }
     if (qty > maxReturnable) {
-      setReturnError(
-        `Only ${maxReturnable}${returningItem.unit} can be returned`,
-      );
+      setReturnError(`Only ${maxReturnable}${item.unit} can be returned`);
       return;
     }
 
@@ -180,38 +190,37 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
     setReturnError('');
     try {
       const refundAmount = Number(
-        ((qty / returningItem.quantity) * returningItem.finalAmount).toFixed(2),
+        (
+          (qty / item.quantity) *
+          (item.finalAmount ?? item.billAmount ?? 0)
+        ).toFixed(2),
       );
-      const restoreAmount = computeStockDelta(returningItem.unit, qty);
-      const category = categories.find(c => c.id === returningItem.categoryId);
+      const restoreAmount = computeStockDelta(item.unit, qty);
+      const category = categories.find(c => c.id === item.categoryId);
       if (!category) {
         setReturnError('Category not found. Try again.');
         return;
       }
       const updatedSubVarieties = category.subVarieties.map((sv: SubVariety) =>
-        sv.id === returningItem.subVarietyId
+        sv.id === item.subVarietyId
           ? { ...sv, stock: sv.stock + restoreAmount }
           : sv,
       );
-      await updateCategoryStock(
-        shopId,
-        returningItem.categoryId,
-        updatedSubVarieties,
-      );
+      await updateCategoryStock(shopId, item.categoryId, updatedSubVarieties);
 
       await addTransaction(shopId, {
         type: 'return',
-        billId: returningItem.billId,
-        originalTransactionId: returningItem.id,
+        billId: item.billId,
+        originalTransactionId: item.id,
         date: new Date().toISOString().slice(0, 10),
         timestamp: Date.now(),
         staffName,
-        categoryId: returningItem.categoryId,
-        categoryName: returningItem.categoryName,
-        subVarietyId: returningItem.subVarietyId,
-        subVarietyName: returningItem.subVarietyName,
+        categoryId: item.categoryId,
+        categoryName: item.categoryName,
+        subVarietyId: item.subVarietyId,
+        subVarietyName: item.subVarietyName,
         quantity: qty,
-        unit: returningItem.unit,
+        unit: item.unit,
         refundAmount,
         refundMethod: refundPayment,
       });
@@ -265,6 +274,12 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
   };
 
   const confirmVoid = async () => {
+    if (!voidingBill) {
+      setVoidError('No bill selected');
+      return;
+    }
+
+    const bill = voidingBill;
     const approver = managementStaff.find(p => p.name === voidApprover);
     if (!approver) {
       setVoidError('Select who is approving this void');
@@ -283,12 +298,13 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
     setVoidError('');
     try {
       const byCategory: Record<string, BillItem[]> = {};
-      voidingBill.items.forEach(item => {
+      bill.items.forEach(item => {
         if (!byCategory[item.categoryId]) byCategory[item.categoryId] = [];
         byCategory[item.categoryId].push(item);
       });
       for (const categoryId of Object.keys(byCategory)) {
         const category = categories.find(c => c.id === categoryId);
+        if (!category) continue;
         const itemsForThisCategory = byCategory[categoryId];
         const updatedSubVarieties = category.subVarieties.map(
           (sv: SubVariety) => {
@@ -306,20 +322,20 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
       }
 
       await Promise.all(
-        voidingBill.items.map(item =>
+        bill.items.map(item =>
           updateTransaction(shopId, item.id, { voided: true }),
         ),
       );
 
       await addVoidRecord(shopId, {
-        billId: voidingBill.billId,
-        items: voidingBill.items.map(i => ({
+        billId: bill.billId,
+        items: bill.items.map(i => ({
           name: i.subVarietyName,
           qty: i.quantity,
           unit: i.unit,
-          amount: i.finalAmount,
+          amount: i.finalAmount ?? i.billAmount ?? 0,
         })),
-        originalAmount: voidingBill.total,
+        originalAmount: bill.total,
         requestedBy: staffName,
         approvedBy: approver.name,
         reason: voidReason.trim(),
@@ -354,6 +370,7 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
   }
 
   const handlePrint = async (bill: BillRecord) => {
+    const locationUrl = await getShopLocationUrl(shopId);
     setPrintingBillId(bill.billId);
     setPrintError('');
     try {
@@ -362,7 +379,7 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
         billItems: bill.items.map(i => ({
           name: i.subVarietyName,
           qty: i.pieceInfo || `${i.quantity}${i.unit}`,
-          amount: i.billAmount ?? i.finalAmount,
+          amount: i.billAmount ?? i.finalAmount ?? 0,
         })),
         discount: bill.items.reduce(
           (sum: number, i) => sum + (i.discount || 0),
@@ -372,9 +389,16 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
         paymentMethod: bill.paymentMethod,
         staffName: bill.staffName,
         timestamp: bill.timestamp,
+        locationUrl: locationUrl || undefined,
+        billId: bill.billId,
       });
     } catch (e) {
-      setPrintError(`Could not print — check the printer is on and paired.`);
+      const msg =
+        e instanceof Error
+          ? e.message
+          : 'Could not print — check the printer is on and paired.';
+      console.log('Print error:', msg);
+      setPrintError(msg);
     } finally {
       setPrintingBillId(null);
     }
@@ -474,19 +498,20 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
               (sum: number, i) => sum + (i.discount || 0),
               0,
             );
-            const billExcessTotal = bill.items.reduce(
-              (sum: number, i) => sum + (i.excess || 0),
-              0,
-            );
+            const billExcessTotal = 0;
             const isVoided = bill.items.every(i => i.voided);
 
             return (
               <Card
                 key={bill.billId}
-                style={[
-                  isTablet && BillStyles.tabletCard,
-                  isVoided && BillStyles.voidedCard,
-                ]}
+                style={
+                  isTablet || isVoided
+                    ? [
+                        isTablet ? BillStyles.tabletCard : null,
+                        isVoided ? BillStyles.voidedCard : null,
+                      ]
+                    : undefined
+                }
               >
                 {isVoided && <Text style={BillStyles.voidedBadge}>VOIDED</Text>}
 
@@ -508,7 +533,7 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
                         : ''}
                     </Text>
                     <Text style={BillStyles.itemAmount}>
-                      {formatCurrency(item.billAmount ?? item.finalAmount)}
+                      {formatCurrency(item.billAmount ?? item.finalAmount ?? 0)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -654,9 +679,15 @@ const Bills = ({ route }: { route: { params: Record<string, string> } }) => {
 
       <ModalOverlay visible={!!returningItem}>
         <Text style={BillStyles.modalTitle}>Return Item</Text>
-        <Text style={BillStyles.modalTitle}>{returningItem?.name}</Text>
+        <Text style={BillStyles.modalTitle}>
+          {returningItem?.subVarietyName ?? 'Item'}
+        </Text>
         <AppInput
-          label={`Quantity (Available: ${returningItem?.soldQty ?? 0})`}
+          label={`Quantity (Available: ${
+            returningItem
+              ? returningItem.quantity - returningItem.returnedQty
+              : 0
+          })`}
           value={returnQty}
           onChangeText={setReturnQty}
           keyboardType="numeric"

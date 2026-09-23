@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   StatusBar,
+  useWindowDimensions,
 } from 'react-native';
 
 import {
@@ -34,6 +35,7 @@ import { clearDeviceSession } from 'utils/HelperFn';
 import Attendance from 'screen/reports/Attendance';
 import Voids from 'screen/Bills/Void';
 import { COLORS } from 'theme/Theme';
+import PrinterSetup from 'components/Printer';
 
 const Drawer = createDrawerNavigator();
 
@@ -190,6 +192,14 @@ const CustomDrawerContent = (props: any) => {
           label="Alerts"
           icon="notifications-outline"
           screen={TABSCREENS.NOTIFY}
+          navigation={props.navigation}
+          state={props.state}
+        />
+
+        <DrawerMenuItem
+          label="Printer Setup"
+          icon="print-outline"
+          screen="PrinterSetup"
           navigation={props.navigation}
           state={props.state}
         />
@@ -362,6 +372,8 @@ const CustomDrawerContent = (props: any) => {
 
 const DrawerNav = ({ route }: any) => {
   const params = route.params || {};
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const canViewManagement =
     params.role === 'owner' || params.role === 'manager';
@@ -379,30 +391,17 @@ const DrawerNav = ({ route }: any) => {
           <CustomDrawerContent {...props} params={params} />
         )}
         screenOptions={{
-          headerStyle: {
-            backgroundColor: COLORS.cacaoDark,
-          },
-
+          headerStyle: { backgroundColor: COLORS.cacaoDark },
           headerTintColor: COLORS.cream,
-
-          headerTitleStyle: {
-            fontWeight: '700',
-          },
-
+          headerTitleStyle: { fontWeight: '700' },
           headerShadowVisible: false,
-
-          /* ===============================================
-             COMPACT DRAWER
-          =============================================== */
-
           drawerStyle: {
-            width: 300,
+            width: isTablet ? 320 : 300,
             backgroundColor: COLORS.panel,
           },
 
-          drawerType: 'front',
-
-          overlayColor: 'rgba(30, 10, 4, 0.62)',
+          drawerType: isTablet ? 'permanent' : 'front',
+          overlayColor: isTablet ? 'transparent' : 'rgba(30, 10, 4, 0.62)',
         }}
       >
         {/* HOME */}
@@ -422,6 +421,14 @@ const DrawerNav = ({ route }: any) => {
           component={withParams(Notifications, params)}
           options={{
             title: 'Alerts',
+          }}
+        />
+
+        <Drawer.Screen
+          name="PrinterSetup"
+          component={withParams(PrinterSetup, params)}
+          options={{
+            title: 'Printer Setup',
           }}
         />
 

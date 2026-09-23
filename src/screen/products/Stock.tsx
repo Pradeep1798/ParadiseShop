@@ -20,7 +20,7 @@ import { getStockUnitLabel, roundStock } from 'utils/HelperFn';
 import ScreenContainer from 'components/ScreenContainer';
 import { COLORS } from 'theme/Theme';
 import { Category, SubVariety } from 'types/Domain';
-import { StockStyles as styles } from './StockStyles';
+import { StockStyles as StockStyles } from './StockStyles';
 
 interface StockCartItem {
   categoryId: string;
@@ -184,46 +184,46 @@ const Stock = ({
   const renderCart = () => (
     <>
       {cart.length > 0 && (
-        <View style={styles.cartBox}>
-          <View style={styles.cartHeader}>
-            <View style={styles.cartHeaderLeft}>
-              <View style={styles.cartIcon}>
-                <Text style={styles.cartIconText}>🛒</Text>
+        <View style={StockStyles.cartBox}>
+          <View style={StockStyles.cartHeader}>
+            <View style={StockStyles.cartHeaderLeft}>
+              <View style={StockStyles.cartIcon}>
+                <Text style={StockStyles.cartIconText}>🛒</Text>
               </View>
 
               <View>
-                <Text style={styles.cartTitle}>To be added</Text>
-                <Text style={styles.cartSubtitle}>
+                <Text style={StockStyles.cartTitle}>To be added</Text>
+                <Text style={StockStyles.cartSubtitle}>
                   {cart.length} item{cart.length !== 1 ? 's' : ''}
                 </Text>
               </View>
             </View>
 
             <TouchableOpacity onPress={() => setCart([])} activeOpacity={0.7}>
-              <Text style={styles.clearText}>Clear all</Text>
+              <Text style={StockStyles.clearText}>Clear all</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.cartItems}>
+          <View style={StockStyles.cartItems}>
             {cart.map((item, index) => (
-              <View key={index} style={styles.cartRow}>
-                <View style={styles.cartItemIndicator} />
+              <View key={index} style={StockStyles.cartRow}>
+                <View style={StockStyles.cartItemIndicator} />
 
-                <View style={styles.cartItemContent}>
-                  <Text style={styles.cartItemName}>{item.subVarietyName}</Text>
+                <View style={StockStyles.cartItemContent}>
+                  <Text style={StockStyles.cartItemName}>{item.subVarietyName}</Text>
 
-                  <Text style={styles.cartItemQuantity}>
+                  <Text style={StockStyles.cartItemQuantity}>
                     +{item.quantity}
                     {getStockUnitLabel(item.unit)}
                   </Text>
 
-                  <View style={styles.cartMetaRow}>
-                    <Text style={styles.cartCategory}>{item.categoryName}</Text>
+                  <View style={StockStyles.cartMetaRow}>
+                    <Text style={StockStyles.cartCategory}>{item.categoryName}</Text>
 
                     {!!item.note && (
                       <>
-                        <Text style={styles.metaDot}>•</Text>
-                        <Text style={styles.cartNote} numberOfLines={1}>
+                        <Text style={StockStyles.metaDot}>•</Text>
+                        <Text style={StockStyles.cartNote} numberOfLines={1}>
                           {item.note}
                         </Text>
                       </>
@@ -232,11 +232,11 @@ const Stock = ({
                 </View>
 
                 <TouchableOpacity
-                  style={styles.removeBtn}
+                  style={StockStyles.removeBtn}
                   onPress={() => removeFromCart(index)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.removeText}>×</Text>
+                  <Text style={StockStyles.removeText}>×</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -245,8 +245,8 @@ const Stock = ({
       )}
 
       {cart.length === 0 && isTablet && (
-        <View style={styles.emptyCartHint}>
-          <Text style={styles.emptyCartHintText}>
+        <View style={StockStyles.emptyCartHint}>
+          <Text style={StockStyles.emptyCartHintText}>
             Add stock items to see them here
           </Text>
         </View>
@@ -254,7 +254,7 @@ const Stock = ({
 
       {cart.length > 0 && (
         <TouchableOpacity
-          style={[styles.confirmButton, saving && styles.confirmButtonDisabled]}
+          style={[StockStyles.confirmButton, saving && StockStyles.confirmButtonDisabled]}
           onPress={submitAll}
           disabled={saving}
           activeOpacity={0.8}
@@ -263,9 +263,9 @@ const Stock = ({
             <ActivityIndicator color={COLORS.white} />
           ) : (
             <>
-              <Text style={styles.confirmText}>Confirm all</Text>
-              <View style={styles.confirmCount}>
-                <Text style={styles.confirmCountText}>{cart.length}</Text>
+              <Text style={StockStyles.confirmText}>Confirm all</Text>
+              <View style={StockStyles.confirmCount}>
+                <Text style={StockStyles.confirmCountText}>{cart.length}</Text>
               </View>
             </>
           )}
@@ -277,13 +277,13 @@ const Stock = ({
   const renderStockForm = () => (
     <>
       {/* CATEGORY */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Category</Text>
+      <View style={StockStyles.section}>
+        <Text style={StockStyles.sectionTitle}>Category</Text>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScroll}
+          contentContainerStyle={StockStyles.categoryScroll}
         >
           {categories.map(category => {
             const active = selectedCategory?.id === category.id;
@@ -292,8 +292,8 @@ const Stock = ({
               <TouchableOpacity
                 key={category.id}
                 style={[
-                  styles.categoryPill,
-                  active && styles.categoryPillActive,
+                  StockStyles.categoryPill,
+                  active && StockStyles.categoryPillActive,
                 ]}
                 onPress={() => {
                   setSelectedCategory(category);
@@ -302,11 +302,11 @@ const Stock = ({
                 }}
                 activeOpacity={0.75}
               >
-                {active && <Text style={styles.categoryCheck}>✓</Text>}
+                {active && <Text style={StockStyles.categoryCheck}>✓</Text>}
                 <Text
                   style={[
-                    styles.categoryText,
-                    active && styles.categoryTextActive,
+                    StockStyles.categoryText,
+                    active && StockStyles.categoryTextActive,
                   ]}
                   numberOfLines={1}
                 >
@@ -319,17 +319,17 @@ const Stock = ({
       </View>
 
       {selectedCategory && (
-        <View style={styles.section}>
-          <View style={styles.subHeader}>
-            <Text style={styles.sectionTitle}>Sub-item</Text>
-            <Text style={styles.itemCount}>
+        <View style={StockStyles.section}>
+          <View style={StockStyles.subHeader}>
+            <Text style={StockStyles.sectionTitle}>Sub-item</Text>
+            <Text style={StockStyles.itemCount}>
               {getSubVarieties().length} item
               {getSubVarieties().length !== 1 ? 's' : ''}
             </Text>
           </View>
 
           {getSubVarieties().length > 0 ? (
-            <View style={styles.subGrid}>
+            <View style={StockStyles.subGrid}>
               {getSubVarieties().map((sub: SubVariety, index: number) => {
                 const active = selectedSub?.id === sub.id;
                 const stock = Number(sub.stock || 0);
@@ -340,19 +340,19 @@ const Stock = ({
                 return (
                   <TouchableOpacity
                     key={sub.id || index}
-                    style={[styles.subCard, active && styles.subCardActive]}
+                    style={[StockStyles.subCard, active && StockStyles.subCardActive]}
                     onPress={() => {
                       setSelectedSub(sub);
                       setError('');
                     }}
                     activeOpacity={0.8}
                   >
-                    <View style={styles.subCardTop}>
-                      <View style={styles.subCardText}>
+                    <View style={StockStyles.subCardTop}>
+                      <View style={StockStyles.subCardText}>
                         <Text
                           style={[
-                            styles.subName,
-                            active && styles.subNameActive,
+                            StockStyles.subName,
+                            active && StockStyles.subNameActive,
                           ]}
                           numberOfLines={2}
                         >
@@ -361,8 +361,8 @@ const Stock = ({
                         {!!sub.description && (
                           <Text
                             style={[
-                              styles.subDescription,
-                              active && styles.subDescriptionActive,
+                              StockStyles.subDescription,
+                              active && StockStyles.subDescriptionActive,
                             ]}
                             numberOfLines={1}
                           >
@@ -372,26 +372,26 @@ const Stock = ({
                       </View>
                       <View
                         style={[
-                          styles.selectCircle,
-                          active && styles.selectCircleActive,
+                          StockStyles.selectCircle,
+                          active && StockStyles.selectCircleActive,
                         ]}
                       >
-                        {active && <Text style={styles.selectCheck}>✓</Text>}
+                        {active && <Text style={StockStyles.selectCheck}>✓</Text>}
                       </View>
                     </View>
-                    <View style={styles.stockRow}>
+                    <View style={StockStyles.stockRow}>
                       <Text
                         style={[
-                          styles.stockLabel,
-                          active && styles.stockLabelActive,
+                          StockStyles.stockLabel,
+                          active && StockStyles.stockLabelActive,
                         ]}
                       >
                         Current stock
                       </Text>
                       <Text
                         style={[
-                          styles.stockValue,
-                          active && styles.stockValueActive,
+                          StockStyles.stockValue,
+                          active && StockStyles.stockValueActive,
                         ]}
                       >
                         {Number(stock).toFixed(2).replace(/\.00$/, '')} {unit}
@@ -402,9 +402,9 @@ const Stock = ({
               })}
             </View>
           ) : (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>No sub-items</Text>
-              <Text style={styles.emptyText}>
+            <View style={StockStyles.emptyBox}>
+              <Text style={StockStyles.emptyTitle}>No sub-items</Text>
+              <Text style={StockStyles.emptyText}>
                 This category doesn't have any sub-items yet.
               </Text>
             </View>
@@ -414,16 +414,16 @@ const Stock = ({
 
       {selectedSub && (
         <>
-          <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <Text style={styles.sectionTitle}>Quantity received</Text>
+          <View style={StockStyles.section}>
+            <View style={StockStyles.labelRow}>
+              <Text style={StockStyles.sectionTitle}>Quantity received</Text>
               {!!selectedUnit && (
-                <Text style={styles.unitText}>({selectedUnit})</Text>
+                <Text style={StockStyles.unitText}>({selectedUnit})</Text>
               )}
             </View>
-            <View style={styles.quantityBox}>
-              <View style={styles.quantityIcon}>
-                <Text style={styles.quantityIconText}>▱</Text>
+            <View style={StockStyles.quantityBox}>
+              <View style={StockStyles.quantityIcon}>
+                <Text style={StockStyles.quantityIconText}>▱</Text>
               </View>
               <TextInput
                 value={qty}
@@ -434,33 +434,33 @@ const Stock = ({
                 placeholder="e.g. 20"
                 placeholderTextColor={COLORS.textFaint}
                 keyboardType="number-pad"
-                style={styles.quantityInput}
+                style={StockStyles.quantityInput}
               />
-              <View style={styles.quantityActions}>
+              <View style={StockStyles.quantityActions}>
                 <TouchableOpacity
-                  style={styles.quantityBtn}
+                  style={StockStyles.quantityBtn}
                   onPress={() =>
                     setQty(String(Math.max(0, Number(qty || 0) - 1)))
                   }
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.quantityBtnText}>−</Text>
+                  <Text style={StockStyles.quantityBtnText}>−</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.quantityBtn}
+                  style={StockStyles.quantityBtn}
                   onPress={() => setQty(String(Number(qty || 0) + 1))}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.quantityBtnText}>+</Text>
+                  <Text style={StockStyles.quantityBtnText}>+</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <Text style={styles.sectionTitle}>Note</Text>
-              <Text style={styles.optionalText}>optional</Text>
+          <View style={StockStyles.section}>
+            <View style={StockStyles.labelRow}>
+              <Text style={StockStyles.sectionTitle}>Note</Text>
+              <Text style={StockStyles.optionalText}>optional</Text>
             </View>
             <TextInput
               value={itemNote}
@@ -470,39 +470,39 @@ const Stock = ({
               }}
               placeholder="e.g. supplier name, invoice no."
               placeholderTextColor={COLORS.textFaint}
-              style={styles.noteInput}
+              style={StockStyles.noteInput}
               multiline
               numberOfLines={2}
             />
           </View>
 
           {!!error && (
-            <View style={styles.errorBox}>
-              <View style={styles.errorIcon}>
-                <Text style={styles.errorIconText}>!</Text>
+            <View style={StockStyles.errorBox}>
+              <View style={StockStyles.errorIcon}>
+                <Text style={StockStyles.errorIconText}>!</Text>
               </View>
-              <Text style={styles.errorText}>{error}</Text>
+              <Text style={StockStyles.errorText}>{error}</Text>
             </View>
           )}
 
           <TouchableOpacity
-            style={styles.addButton}
+            style={StockStyles.addButton}
             onPress={addToCart}
             activeOpacity={0.8}
           >
-            <Text style={styles.addButtonIcon}>＋</Text>
-            <Text style={styles.addButtonText}>Add to list</Text>
+            <Text style={StockStyles.addButtonIcon}>＋</Text>
+            <Text style={StockStyles.addButtonText}>Add to list</Text>
           </TouchableOpacity>
         </>
       )}
 
       {!selectedCategory && (
-        <View style={styles.selectHint}>
-          <View style={styles.selectHintIcon}>
-            <Text style={styles.selectHintIconText}>↓</Text>
+        <View style={StockStyles.selectHint}>
+          <View style={StockStyles.selectHintIcon}>
+            <Text style={StockStyles.selectHintIconText}>↓</Text>
           </View>
-          <Text style={styles.selectHintTitle}>Select a category</Text>
-          <Text style={styles.selectHintText}>
+          <Text style={StockStyles.selectHintTitle}>Select a category</Text>
+          <Text style={StockStyles.selectHintText}>
             Choose a category above to see its sub-items.
           </Text>
         </View>
@@ -511,22 +511,22 @@ const Stock = ({
   );
 
   return (
-    <ScreenContainer>
-      <View style={isTablet ? styles.tabletRow : undefined}>
+    <ScreenContainer allowWideContent={isTablet}>
+      <View style={isTablet ? StockStyles.tabletRow : undefined}>
         <ScrollView
-          style={isTablet ? styles.tabletFormColumn : undefined}
+          style={isTablet ? StockStyles.tabletFormColumn : undefined}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.container}
+          contentContainerStyle={StockStyles.container}
         >
           {/* HEADER */}
-          <View style={styles.header}>
-            <View style={styles.headerIcon}>
-              <Text style={styles.headerIconText}>＋</Text>
+          <View style={StockStyles.header}>
+            <View style={StockStyles.headerIcon}>
+              <Text style={StockStyles.headerIconText}>＋</Text>
             </View>
 
-            <View style={styles.headerTextBox}>
-              <Text style={styles.title}>Stock In</Text>
-              <Text style={styles.subtitle}>
+            <View style={StockStyles.headerTextBox}>
+              <Text style={StockStyles.title}>Stock In</Text>
+              <Text style={StockStyles.subtitle}>
                 Add new stock to your inventory
               </Text>
             </View>
@@ -541,8 +541,8 @@ const Stock = ({
       </View>
       {isTablet && (
         <ScrollView
-          style={styles.tabletCartColumn}
-          contentContainerStyle={styles.tabletCartContent}
+          style={StockStyles.tabletCartColumn}
+          contentContainerStyle={StockStyles.tabletCartContent}
           showsVerticalScrollIndicator={false}
         >
           {renderCart()}

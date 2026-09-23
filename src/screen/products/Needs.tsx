@@ -348,7 +348,7 @@ const Needs = ({
 
                     <Text style={styles.itemMeta}>
                       Bought by {item.fulfilledBy} ·{' '}
-                      {formatDate(item.fulfilledAt)}
+                      {item.fulfilledAt ? formatDate(item.fulfilledAt) : ''}
                     </Text>
                   </View>
 
